@@ -1,9 +1,11 @@
-local scanner = require "scanner"
+--local scanner = require "scanner"
+local parse = require "parser"
+local trace = require "tracer"
 
 local source = [[
-	a & b
+	a + 2 * 32
 ]]
 
-for typeof, value in scanner(source) do
-	print(typeof, value)
+for node in parse(source) do
+	trace(node)
 end

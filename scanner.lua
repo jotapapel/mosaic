@@ -4,8 +4,7 @@ local keywords = {
 	["while"] = true, ["do"] = true,
 	["for"] = true, ["to"] = true, ["step"] = true, ["in"] = true,
 	["return"] = true, ["break"] = true, ["end"] = true,
-	["true"] = true, ["false"] = true,
-	["undef"] = true
+	["and"] = true, ["or"] = true
 }
 
 return function (source)
@@ -13,25 +12,46 @@ return function (source)
 	local function scan ()
 		while index <= len do
 			repeat
+				local typeof
 				local char, startIndex = source:sub(index, index), index
+				-- whitespace
 				if char:match("%s") then
 					index = index + 1
 					break
+				-- comments
 				elseif char == "-" then
 					index = index + 1
 					if source:sub(index, index) == "-" then
+						typeof = "Comment"
 						while index <= len and source:sub(index, index):match("[^\n]") do
 							index = index + 1
 						end
-						return "Comment", source:sub(startIndex, index - 1), startIndex
+					else
+						typeof = "Minus"
 					end
-					return "Minus", source:sub(startIndex, index - 1), startIndex
+				-- identifiers
 				elseif char:match("[_%a]") then
+					typeof = "Identifier"
 					while index <= len and source:sub(index, index):match("[_%w]") do
 						index = index + 1
 					end
-					return "Identifier", source:sub(startIndex, index - 1), startIndex
+					local value = source:sub(startIndex, index - 1)
+					if value == "true" or value == "false" then
+						typeof = "Boolean"
+					elseif value == "undef" then
+						typeof = "Undefined"
+					elseif keywords[value] then
+						typeof = "Keyword"
+					end
+				-- decorator
+				elseif char == "@" and source:sub(index + 1, index + 1):match("[_%a]") then
+					typeof, index = "Decorator", index + 1
+					while index <= len and source:sub(index, index):match("[_%w]") do
+						index = index + 1
+					end
+				-- numbers
 				elseif char:match("%d") then
+					typeof = "Number"
 					while index <= len and source:sub(index, index):match("%d") do
 						index = index + 1
 					end
@@ -41,23 +61,22 @@ return function (source)
 							index = index + 1
 						end
 					end
-					return "Number", source:sub(startIndex, index - 1), startIndex
+				-- hexadecimal numbers
 				elseif char == "&" and source:sub(index + 1, index + 1):match("[a-fA-F0-9]") then
-					index = index + 1
+					typeof, index = "Number", index + 1
 					while index <= len and source:sub(index, index):match("[a-fA-F0-9]") do
 						index = index + 1
 					end
-					return "Number", source:sub(startIndex, index - 1), startIndex
+				-- strings
 				elseif char:match('"') then
-					index = index + 1
+					typeof, index = "String", index + 1
 					while index <= len and source:sub(index, index):match('[^"\n]') do
 						index = index + 1
 					end
 					index = index + 1
-					return "String", source:sub(startIndex, index - 1), startIndex
+				-- special characters
 				elseif char:match("%p") then
 					index = index + 1
-					local typeof
 					if char == "+" then
 						typeof = "Plus"
 					elseif char == "*" then
@@ -103,23 +122,24 @@ return function (source)
 					end
 					if typeof == "Less" or typeof == "Greater" or typeof == "Equal" then
 						if typeof == "Less" and source:sub(index, index) == ">" then
-							index = index + 1
-							typeof = "NotEqual"
+							typeof, index = "NotEqual", index + 1
 						elseif source:sub(index, index) == "=" then
-							index = index + 1
-							typeof = "IsEqual"
+							typeof, index = "IsEqual", index + 1
 						end
 					end
-					return typeof, source:sub(startIndex, index - 1), startIndex
 				end
-				error("<mosaic> unknown character found at source.", 3)
+				-- unknown character
+				if not typeof then
+					error("<mosaic> unknown character found at source.", 3)
+				end
+				return typeof, source:sub(startIndex, index - 1), startIndex
             until true
         end
 	end
 	return scan, function ()
 		local typeof, value, lastIndex = scan()
 		if lastIndex then
-			index = lastIndex - 1
+			index = lastIndex
 		end
 		return typeof, value
 	end
