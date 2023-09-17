@@ -8,7 +8,7 @@ local keywords = {
 }
 
 return function (source)
-	local index, len = 1, source:len()
+	local index, len, line = 1, source:len(), 1
 	local function scan ()
 		while index <= len do
 			repeat
@@ -17,6 +17,9 @@ return function (source)
 				-- whitespace
 				if char:match("%s") then
 					index = index + 1
+					if char == "\n" then
+						line = line + 1
+					end
 					break
 				-- comments
 				elseif char == "-" then
@@ -41,7 +44,7 @@ return function (source)
 					elseif value == "undef" then
 						typeof = "Undefined"
 					elseif keywords[value] then
-						typeof = "Keyword"
+						typeof = value:gsub("^%l", string.upper)
 					end
 				-- decorator
 				elseif char == "@" and source:sub(index + 1, index + 1):match("[_%a]") then
@@ -132,7 +135,7 @@ return function (source)
 				if not typeof then
 					error("<mosaic> unknown character found at source.", 3)
 				end
-				return typeof, source:sub(startIndex, index - 1), startIndex
+				return typeof, source:sub(startIndex, index - 1), startIndex, line
             until true
         end
 	end
@@ -141,6 +144,6 @@ return function (source)
 		if lastIndex then
 			index = lastIndex
 		end
-		return typeof, value
+		return typeof, value, line
 	end
 end
