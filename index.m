@@ -1,0 +1,1 @@
+a = myRecord[23]

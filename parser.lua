@@ -1,196 +1,303 @@
+local trace = require "tracer"
 local scan = require "scanner"
 
-local peek, pop
-local parser = {}
+local current, pop, peek
+local parseExpression, parseStatement
 
-function parser:consume ()
-	local typeof, value, _, line = pop()
-	self.typeof, self.value, self.line = peek()
-	return typeof, value, line or "(near EOF)"
-end
-
-function parser:expect (a, b)
-    local typeof, value, line = self:consume()
-    if typeof == a then
-        return value
-    end
-    io.write("<mosaic> ", line, ": ", b or "type mismatch (expecting " .. a .. ", found " .. (typeof or "EOF") .. ")", "\n")
+local function syntaxError (msg, value, line)
+	io.write("<mosaic> ", line or current.line, ": ", msg," near '", value or current.value, "'.", "\n")
 	os.exit()
 end
 
-function parser:parseTerm ()
-	local typeof, value = self:consume()
+local function consume ()
+	local typeof, value, _, line = pop()
+	current.typeof, current.value, current.line = peek()
+	return typeof, value, line
+end
+
+local function expect (expectedType, msg)
+	local typeof, value, line = consume()
+	if typeof ~= expectedType then
+		msg = msg or string.format("expecting <%s>", expectedType:lower())
+		syntaxError(msg, value, line)
+	end
+	return value
+end
+
+-- type Term = Identifier | StringLiteral | NumberLiteral | BooleanLiteral | Undefined
+local function parseTerm ()
+	local typeof, value, line = consume()
+	-- type Identifier = { kindof: "Identifier", value: string }
 	if typeof == "Identifier" then
 		return { kindof = "Identifier", value = value }
+	-- type StringLiteral = { kindof: "StringLiteral", value: string }
 	elseif typeof == "String" then
 		return { kindof = "StringLiteral", value = value:sub(2, -2) }
+	-- type NumberLiteral = { kindof: "NumberLiteral", value: string }
 	elseif typeof == "Number" then
 		return { kindof = "NumberLiteral", value = value:gsub("&", "0x") }
+	-- type BooleanLiteral = { kindof: "BooleanLiteral", value: string }
 	elseif typeof == "Boolean" then
 		return { kindof = "BooleanLiteral", value = value }
+	-- type Undefined = { kindof: "Undefined" }
 	elseif typeof == "Undefined" then
 		return { kindof = "Undefined" }
 	elseif typeof == "LeftParenthesis" then
-		value = self:parseExpression()
-		self:expect("RightParenthesis", "')' expected near '" .. self..value .. "'.")
+		value = parseExpression()
+		expect("RightParenthesis", "')' expected")
 		return value
 	end
 end
 
-function parser:parseUnary ()
-	if self.typeof == "Minus" or self.typeof == "Dollar"
-	   or self.typeof == "Pound" or self.typeof == "Bang" then
-		local operator = self.value
-		self:consume()
-		return { kindof = "UnaryExpression", operator = operator, value = self:parseExpression() }
+-- interface UnaryExpression { kindof: "UnaryExpression", operator: string, argument: Expression }
+local function parseUnary ()
+	if current.typeof == "Minus" or current.typeof == "Dollar"
+	   or current.typeof == "Pound" or current.typeof == "Bang" then
+		local operator = current.value
+		consume()
+		return { kindof = "UnaryExpression", operator = operator, value = parseExpression() }
 	end
-	return self:parseTerm()
+	return parseTerm()
 end
 
-function parser:parseMember ()
-	local record = self:parseUnary()
-	while self.typeof == "Dot" or self.typeof == "LeftBracket" do
-		local typeof, property = self.typeof, nil
-		consume()
-		if typeof == "Dot" then
-			property = self:parseTerm()
-			if property.kindof ~= "Identifier" then
-				io.write("<mosaic> ", self.line, ": Expecting <identifier> right of '.'.")
-				os.exit()
+-- interface MemberExpression { kindof: "MemberExpression", record: Identifier, property: Identifier }
+local function parseMember ()
+	local record = parseUnary()
+	if record.kindof == "Identifier" then
+		while current.typeof == "Dot" or current.typeof == "LeftBracket" do
+			local property, computed
+			if current.typeof == "Dot" then
+				consume()
+				property, computed = parseTerm(), false
+				if property.kindof ~= "Identifier" then
+					syntaxError("unknown symbol found", value)
+				end
+			else
+				consume()
+				property, computed = parseExpression(), true
+				expect("RightBracket", "missing ']'") 
 			end
-		else
-			property = self:parseExpression()
-			self:expect("RightBracket", "Missing ']' near '" .. self.value .. "'.") 
+			expression = { kindof = "MemberExpression", record = record, property = property }
 		end
-		record = { kindof = "MemberExpression", record = record, property = property }
 	end
 	return record
 end
 
-function parser:parseArgumentList ()
-	local arguments = { self:parseRecord() }
-	while self.typeof == "Comma" do
-		self:consume()
-		table.insert(arguments, self:parseRecord())
+local function parseArgumentList ()
+	local arguments = { parseExpression() }
+	while current.typeof == "Comma" do
+		consume()
+		table.insert(arguments, parseExpression())
 	end
 	return arguments
 end
 
-function parser:parseArguments ()
-	self:expect("LeftParenthesis")
-	local arguments = (self.typeof == "RightParenthesis") and {} or self:parseArgumentList()
-	self:expect("RightParenthesis")
+local function parseArguments ()
+	local arguments
+	expect("LeftParenthesis", "'(' expected")
+	if current.typeof ~= "RightParenthesis" then
+		arguments = parseArgumentList()
+	end
+	expect("RightParenthesis", "')' expected")
 	return arguments
 end
 
-function parser:parseCall (caller)
-	local expression = { kindof = "CallExpression", caller = caller, args = self:parseArguments() }
-	if self.typeof == "LeftParenthesis" then
-		expression = self:parseCall(expression)
+-- interface CallExpression { kindof: "CallExpression", caller: Expression, arguments: Expression[] }
+local function parseCall (caller)
+	local expression = { kindof = "CallExpression", caller = caller, arguments = parseArguments() }
+	if current.typeof == "LeftParenthesis" then
+		expression = parseCall(expression)
 	end
 	return expression
 end
 
-function parser:parseCallMember ()
-	local member = self:parseMember()
-	if self.typeof == "LeftParenthesis" then
-		return self:parseCall(member)
+local function parseCallMember ()
+	local member = parseMember()
+	if current.typeof == "LeftParenthesis" then
+		return parseCall(member)
 	end
 	return member
 end
 
-function parser:parseMultiplicative ()
-	local left = self:parseCallMember()
-	while self.typeof == "Asterisk" or self.typeof == "Slash"
-		  or self.typeof == "Circumflex" or self.typeof == "Percent" do
-		local operator = self.value
-		self:consume()
-		left = { kindof = "BinaryExpression", operator = operator, left = left, right = self:parseCallMember() }
-	end
-	return left
-end
-
-function parser:parseAdditive ()
-	local left = self:parseMultiplicative()
-	while self.typeof == "Plus" or self.typeof == "Minus" do
-		local operator = self.value
-		self:consume()
-		left = { kindof = "BinaryExpression", operator = operator, left = left, right = self:parseMultiplicative() }
-	end
-	return left
-end
-
-function parser:parseComparison ()
-	local left = self:parseAdditive()
-	while self.typeof == "IsEqual" or self.typeof == "Greater" or self.typeof == "Less"
-		  or self.typeof == "GreaterEqual" or self.typeof == "LessEqual" or self.typeof == "NotEqual" do
-		local operator = self.value
+-- interface BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: string, right: Expression }
+local function parseMultiplicative ()
+	local left = parseCallMember()
+	while current.typeof == "Asterisk" or current.typeof == "Slash"
+		  or current.typeof == "Circumflex" or current.typeof == "Percent" do
+		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", operator = operator, left = left, right = self:parseAdditive() }
+		left = { kindof = "BinaryExpression", left = left, operator = operator, right = parseCallMember() }
 	end
 	return left
 end
 
-function parser:parseLogical ()
-	local left = parser:parseComparison()
-	while self.typeof == "And" or self.typeof == "Or" do
-		local operator = self.value
-		self:consume()
-		left = { kindof = "BinaryExpression", operator = operator, left = left, right = self:parseComparison() }
+-- interface BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: string, right: Expression }
+local function parseAdditive ()
+	local left = parseMultiplicative()
+	while current.typeof == "Plus" or current.typeof == "Minus" do
+		local operator = current.value
+		consume()
+		left = { kindof = "BinaryExpression", left = left, operator = operator, right = parseMultiplicative() }
 	end
 	return left
 end
 
-function parser:parseRecord ()
-	if self.typeof ~= "LeftBracket" then
-		return self:parseLogical()
+-- interface BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: string, right: Expression }
+local function parseComparison ()
+	local left = parseAdditive()
+	while current.typeof == "IsEqual" or current.typeof == "Greater" or current.typeof == "Less"
+		  or current.typeof == "GreaterEqual" or current.typeof == "LessEqual" or current.typeof == "NotEqual" do
+		local operator = current.value
+		consume()
+		left = { kindof = "BinaryExpression", left = left, operator = operator, right = parseAdditive() }
 	end
-	self:consume()
+	return left
+end
+
+-- interface BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: string, right: Expression }
+local function parseLogical ()
+	local left = parseComparison()
+	while current.typeof == "And" or current.typeof == "Or" do
+		local operator = current.value
+		consume()
+		left = { kindof = "BinaryExpression", left = left, operator = operator, right = parseComparison() }
+	end
+	return left
+end
+
+-- type RecordElement = { kindof: "RecordElement", value: Expression }
+-- type RecordMember = { kindof: "RecordMember", key: Identifier, value: Expression }
+-- interface RecordLiteral { kindof: "RecordLiteral", properties: (RecordMember | RecordElement)[] }
+local function parseRecord ()
+	if current.typeof ~= "LeftBracket" then
+		return parseLogical()
+	end
+	consume()
 	local properties = {}
-	while self.typeof ~= "RightBracket" do
+	local typeof, value
+	while typeof ~= "RightBracket" do
 		repeat
-			local key
-			if self.typeof == "Identifier" then
-				key = { kindof = "Identifier", value = self.value }
-				self:consume()
-				if self.typeof ~= "RightBracket" then
-					self:expect("Comma")
-					table.insert(properties, { kindof = "RecordElement", value = key })
+			if current.typeof == "Identifier" then
+				typeof, value = consume()
+				if current.typeof == "RightBracket" or current.typeof == "Comma" then
+					table.insert(properties, { kindof = "RecordElement", value = value })
+					typeof, value = consume()
 					break
 				end
-				self:expect("Colon")
+				expect("Colon")
 			end
-			table.insert(properties, { kindof = "RecordElement", key = key, value = self:parseLogical() })
-			if self.typeof ~= "RightBracket" then
-				self:expect("Comma")
+			table.insert(properties, { kindof = "RecordMember", key = value, value = parseExpression() })
+			if current.typeof == "RightBracket" or current.typeof == "Comma" then
+				typeof, value = consume()
+				break
 			end
-			break
-		until true
+		until typeof == "RightBracket"
 	end
 	return { kindof = "RecordLiteral", properties = properties }
 end
 
-function parser:parseExpression ()
-	local expression = self:parseRecord()
-	if self.typeof == "Equal" then
-		self:consume()
-		local key, value = expression, self:parseExpression()
-		return { kindof = "VariableAssignment", key = key, value = value }
-	end
-	return expression
+-- type Expression = RecordLiteral | BinaryExpression | CallExpression | MemberExpression | UnaryExpression | Term
+function parseExpression ()
+	return parseRecord()
 end
 
-function parser:parseStatement()
-	local statement = require "statements"
-	return statement(self)
+local function parseName (self)
+	local value, line, name = current.value, current.line, parseMember()
+	if not (name.kindof == "MemberExpression" or name.kindof == "Identifier") then
+		syntaxError("<name> expected")
+	end
+	return name
+end
+
+local function parseParameters ()
+	local parameters
+	expect("LeftParenthesis", "missing '(' after <name>")
+	if current.typeof ~= "RightParenthesis" then
+		parameters = {}
+		while current.typeof ~= "RightParenthesis" do
+			table.insert(parameters, expect("Identifier", "expecting <name>"))
+			if current.typeof ~= "RightParenthesis" then
+				expect("Comma", "expecting ')'")
+			end
+		end
+	end
+	expect("RightParenthesis", "missing ')' to close function parameters")
+	return parameters
+end
+
+function parseStatement(kindof)
+	local typeof, value, line = peek()
+	-- interface AssignmentExpression { kindof: "AssignmentExpression", left: Identifier | RecordMember, operator: string, right: Expression }
+	if typeof == "Identifier" then
+		local left = parseExpression()
+		if left and current.typeof == "Equal" then
+			local operator = current.value
+			consume()
+			return { kindof = "AssignmentExpression", left = left, operator = operator, right = parseExpression() }
+		end
+	-- interface Comment { kindof: "Comment", content: string }
+	elseif typeof == "Comment" then
+		consume()
+		return { kindof = "Comment", content = value:sub(3) }
+	-- type VariableDeclarator = { kindof: "VariableDeclarator", identifier: Identifier, init?: Expression }
+	-- interface VariableDeclaration { kindof: "VariableDeclaration", declarations: VariableDeclarator[] }
+	elseif typeof == "Var" then
+		consume()
+		local declarations = {}
+		while true do
+			repeat
+				local identifier, init = expect("Identifier", "<name> expected"), nil
+				if not (current.typeof == "Equal" or current.typeof == "Comma") then
+					syntaxError("unexpected symbol near")
+				elseif current.typeof == "Equal" then
+					consume()
+					init = parseExpression()
+				end
+				table.insert(declarations, { kindof = "VariableDeclarator", identifier = identifier, init = init })
+				if current.typeof == "Comma" then
+					consume()
+					break
+				end
+				return { kindof = "VariableDeclaration", declarations = declarations }
+			until true
+		end
+	-- interface FunctionDeclaration { kindof: "FunctionDeclaration", name: Identifier | RecordMember, parameters: Identifier[], body: Statement[] }
+	elseif typeof == "Function" then
+		consume()
+		local body, name = {}, parseName()
+		local parameters = parseParameters()
+		while peek() and current.typeof ~= "End" do
+			table.insert(body, parseStatement("function"))
+		end
+		expect("End", "'end' expected (to close 'function' at line " .. line .. ")")
+		return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body }
+	-- interface PrototypeDeclaration { kindof "PrototypeDeclaration", name: Identifier | RecordMember,
+	--									parent: Identifier | RecordMember, body: (Comment | VariableDeclaration | FunctionDeclaration)[] }
+	elseif typeof == "Prototype" then
+		consume()
+		local body, name = {}, parseName()
+		expect("LeftBrace", "missing '{' after <name>")
+		local parent = parseName()
+		expect("RightBrace", "missing '}' to close prototype parent")
+		while peek() and current.typeof ~= "End" do
+			table.insert(body, parseStatement("prototype"))
+		end
+		self:expect("End", "'end' expected (to close 'prototype' at line " .. line .. ")")
+		return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body }
+	end
+	-- malformed number or unknown symbol
+	local errmsg = "unexpected symbol found"
+	if value:match("^%d") then
+		errmsg = "malformed number"
+	end
+	syntaxError(errmsg, value, line)
 end
 
 return function(source)
-    pop, peek = scan(source)
+	current, pop, peek = {}, scan(source)
 	return function ()
-		local typeof = peek()
-		if typeof then
-			return parser:parseStatement()
+		if peek() then
+			return parseStatement("program")
 		end
 	end
 end

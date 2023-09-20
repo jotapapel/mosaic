@@ -136,8 +136,8 @@ return function (source)
 					error("<mosaic> unknown character found at source.", 3)
 				end
 				return typeof, source:sub(startIndex, index - 1), startIndex, line
-            until true
-        end
+			until true
+		end
 	end
 	return scan, function ()
 		local typeof, value, lastIndex = scan()

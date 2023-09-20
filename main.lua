@@ -1,12 +1,8 @@
---local scan = require "scanner"
 local parse = require "parser"
 local trace = require "tracer"
 
-local source = [[
-	function myFunction ()
-		var a = 32
-	end
-]]
+local file <close> = io.open("index.m")
+local source = file:read("*a")
 
 for node in parse(source) do
 	trace(node)
