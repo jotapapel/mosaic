@@ -26,7 +26,7 @@ end
 
 -- type Term = Identifier | StringLiteral | NumberLiteral | BooleanLiteral | Undefined
 local function parseTerm ()
-	local typeof, value, line = consume()
+	local typeof, value = consume()
 	-- type Identifier = { kindof: "Identifier", value: string }
 	if typeof == "Identifier" then
 		return { kindof = "Identifier", value = value }
@@ -63,22 +63,19 @@ end
 -- interface MemberExpression { kindof: "MemberExpression", record: Identifier, property: Identifier }
 local function parseMember ()
 	local record = parseUnary()
-	if record.kindof == "Identifier" then
-		while current.typeof == "Dot" or current.typeof == "LeftBracket" do
-			local property, computed
-			if current.typeof == "Dot" then
-				consume()
-				property, computed = parseTerm(), false
-				if property.kindof ~= "Identifier" then
-					syntaxError("unknown symbol found", value)
-				end
-			else
-				consume()
-				property, computed = parseExpression(), true
-				expect("RightBracket", "missing ']'") 
+	while current.typeof == "Dot" or current.typeof == "LeftBracket" do
+		local property, computed
+		local typeof, value = consume()
+		if typeof == "Dot" then
+			property, computed = parseTerm(), false
+			if not property or property.kindof ~= "Identifier" then
+				syntaxError("unknown symbol found", value)
 			end
-			expression = { kindof = "MemberExpression", record = record, property = property }
+		else
+			property, computed = parseExpression(), true
+			expect("RightBracket", "missing ']'") 
 		end
+		record = { kindof = "MemberExpression", record = record, property = property }
 	end
 	return record
 end
@@ -202,7 +199,7 @@ function parseExpression ()
 end
 
 local function parseName (self)
-	local value, line, name = current.value, current.line, parseMember()
+	local name = parseMember()
 	if not (name.kindof == "MemberExpression" or name.kindof == "Identifier") then
 		syntaxError("<name> expected")
 	end
@@ -227,16 +224,8 @@ end
 
 function parseStatement(kindof)
 	local typeof, value, line = peek()
-	-- interface AssignmentExpression { kindof: "AssignmentExpression", left: Identifier | RecordMember, operator: string, right: Expression }
-	if typeof == "Identifier" then
-		local left = parseExpression()
-		if left and current.typeof == "Equal" then
-			local operator = current.value
-			consume()
-			return { kindof = "AssignmentExpression", left = left, operator = operator, right = parseExpression() }
-		end
 	-- interface Comment { kindof: "Comment", content: string }
-	elseif typeof == "Comment" then
+	if typeof == "Comment" then
 		consume()
 		return { kindof = "Comment", content = value:sub(3) }
 	-- type VariableDeclarator = { kindof: "VariableDeclarator", identifier: Identifier, init?: Expression }
@@ -246,7 +235,8 @@ function parseStatement(kindof)
 		local declarations = {}
 		while true do
 			repeat
-				local identifier, init = expect("Identifier", "<name> expected"), nil
+				local init
+				local identifier = expect("Identifier", "<name> expected")
 				if not (current.typeof == "Equal" or current.typeof == "Comma") then
 					syntaxError("unexpected symbol near")
 				elseif current.typeof == "Equal" then
@@ -264,10 +254,11 @@ function parseStatement(kindof)
 	-- interface FunctionDeclaration { kindof: "FunctionDeclaration", name: Identifier | RecordMember, parameters: Identifier[], body: Statement[] }
 	elseif typeof == "Function" then
 		consume()
-		local body, name = {}, parseName()
+		local body = {}
+		local name = parseName()
 		local parameters = parseParameters()
 		while peek() and current.typeof ~= "End" do
-			table.insert(body, parseStatement("function"))
+			table.insert(body, parseStatement("FunctionDeclaration"))
 		end
 		expect("End", "'end' expected (to close 'function' at line " .. line .. ")")
 		return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body }
@@ -275,28 +266,53 @@ function parseStatement(kindof)
 	--									parent: Identifier | RecordMember, body: (Comment | VariableDeclaration | FunctionDeclaration)[] }
 	elseif typeof == "Prototype" then
 		consume()
-		local body, name = {}, parseName()
+		local body = {}
+		local name = parseName()
 		expect("LeftBrace", "missing '{' after <name>")
 		local parent = parseName()
 		expect("RightBrace", "missing '}' to close prototype parent")
 		while peek() and current.typeof ~= "End" do
-			table.insert(body, parseStatement("prototype"))
+			table.insert(body, parseStatement("PrototypeDeclaration"))
 		end
 		self:expect("End", "'end' expected (to close 'prototype' at line " .. line .. ")")
 		return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body }
+	-- interface IfStatement { kindof: "IfStatement", test: Expression, consequent: Statement[], alternate?: IfStatement | Statement[] }
+	elseif typeof == "If" then
+		local statementNode = { kindof = "IfStatement", consequent = {} }
+		local currentNode = statementNode
+		while current.typeof ~= "End" do
+			local typeof = consume()
+			if typeof == "If" or typeof == "Elseif" then
+				currentNode.test = parseExpression()
+				expect("Then", "'then' expected")
+			end
+			repeat
+				table.insert(currentNode.consequent or currentNode, parseStatement("IfStatement"))
+				if current.typeof == "Elseif" or current.typeof == "Else" then
+					statementNode.alternate = (current.typeof == "Elseif") and { kindof = "IfStatement", consequent = {} } or {}
+					currentNode = statementNode.alternate
+					break
+				end
+			until current.typeof == "Elseif" or current.typeof == "Else" or current.typeof == "End"
+		end
+		expect("End", "'end' expected (to close 'if' at line " .. line .. ")")
+		return statementNode
 	end
-	-- malformed number or unknown symbol
-	local errmsg = "unexpected symbol found"
-	if value:match("^%d") then
-		errmsg = "malformed number"
+	-- interface AssignmentExpression { kindof: "AssignmentExpression", left: Identifier | RecordMember, operator: string, right: Expression }
+	local left = parseExpression()
+	if current.typeof == "Equal" then
+		local operator = current.value
+		consume()
+		return { kindof = "AssignmentExpression", left = left, operator = operator, right = parseExpression() }
 	end
-	syntaxError(errmsg, value, line)
+	return left
 end
 
-return function(source)
+return function (source)
 	current, pop, peek = {}, scan(source)
 	return function ()
-		if peek() then
+		current.typeof, current.value, current.line = peek()
+		if current.typeof then
 			return parseStatement("program")
 		end
 	end
