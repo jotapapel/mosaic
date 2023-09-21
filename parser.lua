@@ -262,6 +262,11 @@ function parseStatement(kindof)
 		end
 		expect("End", "'end' expected (to close 'function' at line " .. line .. ")")
 		return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body }
+	-- interface ReturnStatement { kindof: "ReturnStatement", argument: Expression }
+	elseif typeof == "Return" then
+		consume()
+		local argument = parseExpression()
+		return { kindof = "ReturnStatement", argument = argument }
 	-- interface PrototypeDeclaration { kindof "PrototypeDeclaration", name: Identifier | RecordMember,
 	--									parent: Identifier | RecordMember, body: (Comment | VariableDeclaration | FunctionDeclaration)[] }
 	elseif typeof == "Prototype" then
@@ -297,6 +302,21 @@ function parseStatement(kindof)
 		end
 		expect("End", "'end' expected (to close 'if' at line " .. line .. ")")
 		return statementNode
+	-- interface WhileLoop { kindof: "WhileLoop", condition: Expression, body: Statement[] }
+	elseif typeof == "While" then
+		consume()
+		local condition = parseExpression()
+		expect("Do", "'do' expected")
+		local body = {}
+		while current.typeof ~= "End" do
+			table.insert(body, parseStatement("WhileLoop"))
+		end
+		expect("End", "'end' expected (to close 'while' at line " .. line .. ")")
+		return { kindof = "WhileLoop", condition = condition, body = body }
+	-- interface BreakStatement { kindof: "BreakStatement" }
+	elseif typeof == "Break" then
+		consume()
+		return { kindof = "BreakStatement" }
 	end
 	-- interface AssignmentExpression { kindof: "AssignmentExpression", left: Identifier | RecordMember, operator: string, right: Expression }
 	local left = parseExpression()
