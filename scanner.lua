@@ -8,7 +8,7 @@ local keywords = {
 }
 
 return function (source)
-	local index, len, line = 1, source:len(), 1
+	local index, lineIndex, len = 1, 1, source:len()
 	local function scan ()
 		while index <= len do
 			repeat
@@ -18,7 +18,7 @@ return function (source)
 				if char:match("%s") then
 					index = index + 1
 					if char == "\n" then
-						line = line + 1
+						lineIndex = lineIndex + 1
 					end
 					break
 				-- comments
@@ -46,13 +46,13 @@ return function (source)
 					elseif keywords[value] then
 						typeof = value:gsub("^%l", string.upper)
 					end
-				-- decorator
+				-- decorators
 				elseif char == "@" and source:sub(index + 1, index + 1):match("[_%a]") then
 					typeof, index = "Decorator", index + 1
 					while index <= len and source:sub(index, index):match("[_%w]") do
 						index = index + 1
 					end
-				-- numbers
+				-- decimal numbers
 				elseif char:match("%d") then
 					typeof = "Number"
 					while index <= len and source:sub(index, index):match("%d") do
@@ -66,7 +66,7 @@ return function (source)
 					end
 				-- hexadecimal numbers
 				elseif char == "&" and source:sub(index + 1, index + 1):match("[a-fA-F0-9]") then
-					typeof, index = "Number", index + 1
+					typeof, index = "Hexadecimal", index + 1
 					while index <= len and source:sub(index, index):match("[a-fA-F0-9]") do
 						index = index + 1
 					end
@@ -77,7 +77,7 @@ return function (source)
 						index = index + 1
 					end
 					index = index + 1
-				-- special characters
+				-- characters
 				elseif char:match("%p") then
 					index = index + 1
 					if char == "+" then
@@ -133,17 +133,18 @@ return function (source)
 				end
 				-- unknown character
 				if not typeof then
-					error("<mosaic> unknown character found at source.", 3)
+					io.write("<mosaic> ", line, ": unknown character found at source.")
+					os.exit()
 				end
-				return typeof, source:sub(startIndex, index - 1), startIndex, line
+				return typeof, source:sub(startIndex, index - 1), lineIndex, startIndex
 			until true
 		end
 	end
-	return scan, function ()
-		local typeof, value, lastIndex = scan()
+	return keywords, scan, function ()
+		local typeof, value, line, lastIndex = scan()
 		if lastIndex then
 			index = lastIndex
 		end
-		return typeof, value, line
+		return typeof, value or "<eof>", line or (lineIndex - 1)
 	end
 end
