@@ -79,7 +79,7 @@ local function parseTerm ()
 	elseif typeof == "LeftParenthesis" then
 		---@type Expression
 		local expression = parseExpression()
-		expect("RightParenthesis", "')' expected near " .. current.value .. ".")
+		expect("RightParenthesis", "')' expected")
 		return expression
 	end
 	-- unknown symbol
@@ -99,7 +99,7 @@ local function parseMemberExpression ()
 				throw("syntax error near '" .. value .. (property and property.value or "") .. "'")
 			end
 		else
-			value, property, computed = current.value, parseExpression(), true
+			property, computed = parseExpression(), true
 			expect("RightBracket", "']' missing")
 		end
 		record = { kindof = "MemberExpression", record = record, property = property, computed = computed }
@@ -208,7 +208,7 @@ function parseExpression ()
 	return parseAssignmentExpression()
 end
 
----@return (Statement|Expression)?
+---@return StatementExpression?
 function parseStatement ()
 	local typeof, value, line = peek()
 	-- Comment
@@ -222,7 +222,7 @@ function parseStatement ()
 		local declarations = {}
 		if current.typeof == "Identifier" then
 			while current.typeof == "Identifier" do
-				local identifier = parseTerm()
+				local identifier = parseExpression()
 				local init = suppose("Equal") and parseExpression()
 				declarations[#declarations + 1] = { kindof = "VariableDeclarator", identifier = identifier, init = init }
 				suppose("Comma")
@@ -235,14 +235,12 @@ function parseStatement ()
 	elseif typeof == "Function" then
 		consume()
 		---@type BlockStatement[]
-		local body = {}
-		---@type MemberExpression | Identifier
-		local name = parseMemberExpression()
+		local body, name = {}, parseMemberExpression()
 		---@type Expression[]
 		local parameters = {}
 		expect("LeftParenthesis", "missing '(' after <name>")
 		while current.typeof ~= "RightParenthesis" do
-			parameters[#parameters + 1] = parseTerm()
+			parameters[#parameters + 1] = parseExpression()
 			suppose("Comma")
 		end
 		expect("RightParenthesis", "')' expected")
@@ -260,8 +258,7 @@ function parseStatement ()
 	elseif typeof == "Prototype" then
 		consume()
 		---@type BlockStatement[]
-		local body = {}
-		local name = parseMemberExpression()
+		local body, name = {}, parseExpression()
 		expect("LeftBrace", "Missing '{' after <name>")
 		---@type Expression?
 		local parent = (current.typeof ~= "RightBrace") and parseExpression()
@@ -274,7 +271,7 @@ function parseStatement ()
 		return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body }
 	-- IfStatement
 	elseif typeof == "If" then
-		---@type IfStatement
+		---@type IfStatement|BlockStatement[]
 		local node = { kindof = "IfStatement", consequent = {} }
 		---@type Statement[]
 		local consequent
@@ -283,11 +280,12 @@ function parseStatement ()
 				node.test, consequent = parseExpression(), node.consequent
 				expect("Then", "'then' expected")
 			elseif suppose("Else") then
-				consequent = node.consequent or node.alternate or node
+				consequent = node.consequent or node
 			end
 			repeat
 				consequent[#consequent + 1] = parseStatement()
 				if current.typeof == "Elseif" or current.typeof == "Else" then
+					---@type BlockStatement[]
 					node.alternate = (current.typeof == "Elseif") and { kindof = "IfStatement", consequent = {} } or {}
 					node = node.alternate
 					break
@@ -330,7 +328,7 @@ function parseStatement ()
 			variable, init = { init }, nil
 			suppose("Comma")
 			while current.typeof == "Identifier" do
-				table.insert(variable, parseTerm())
+				variable[#variable + 1] = parseTerm()
 				suppose("Comma")
 			end
 			expect("In", "'in' expected")
@@ -350,9 +348,10 @@ function parseStatement ()
 end
 
 ---@param source string The raw source.
----@return fun(): Statement?|Expression?
+---@return fun(): StatementExpression?
 return function (source)
 	current, pop, peek = scan(source)
+	---@return StatementExpression?
 	return function ()
 		current.typeof, current.value, current.line = peek()
 		if current.typeof then

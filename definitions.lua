@@ -32,3 +32,5 @@
 ---@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: Statement[] }
 ---@alias BreakStatement { kindof: "BreakStatement" }
 ---@alias ForLoop { kindof: "ForLoop", init: AssignmentExpression, goal: Expression, step?: Expression, body: BlockStatement[] }
+
+---@alias StatementExpression Statement|Expression

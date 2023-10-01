@@ -9,4 +9,8 @@ prototype graphics {}
 		YELLOW = &A, BRIGHT_YELLOW = &B,
 		GRAY = &C, BRIGHT_GRAY = &D,
 		WHITE = &E, BRIGHT_WHITE = &F
+
+	function border (color)
+		poke(&3FF8, color or 0)
+	end
 end
