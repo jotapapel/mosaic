@@ -1,3 +1,7 @@
+---@param value string|number|boolean|table The value to display.
+---@param level? number The indent level.
+---@param visited? boolean|table Wether the value has been displayed previously.
+---@return string #The human readable string.
 local function serialize (value, level, visited)
 	level, visited = level or 1, visited or {}
 	local typeof = type(value)
@@ -30,7 +34,10 @@ local function serialize (value, level, visited)
 	return "nil"
 end
 
+--- Display the value as a human readable string.
+---@param value string The value to trace.
+---@param inline boolean? Display the result as a line.
 return function (value, inline)
-	local value = serialize(value)
+	value = serialize(value)
 	print(inline and value:gsub("[\n\t]", { ["\t"] = "", ["\n"] = string.char(32) }) or value)
 end

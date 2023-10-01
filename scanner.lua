@@ -1,3 +1,4 @@
+---@type { [string]: true }
 local keywords = {
 	["var"] = true, ["function"] = true, ["prototype"] = true,
 	["if"] = true, ["then"] = true, ["elseif"] = true, ["else"] = true,
@@ -7,12 +8,24 @@ local keywords = {
 	["and"] = true, ["or"] = true
 }
 
+---@param source string The raw source.
+---@return { typeof: string?, value: string, line: number }
+---@return fun(): string?, string, number, number
+---@return fun(): string?, string, number
 return function (source)
+<<<<<<< HEAD
 	local index, lineIndex, len = 1, 1, source:len()
+=======
+	---@type number, number, number
+	local index, lineIndex, len = 1, 1, source:len()
+	---@return string?, string, number, number
+>>>>>>> c0e6c07 (1st alpha of the parser, added Lua type checking)
 	local function scan ()
 		while index <= len do
 			repeat
+				---@type string?
 				local typeof
+				---@type string, number
 				local char, startIndex = source:sub(index, index), index
 				-- whitespace
 				if char:match("%s") then
@@ -133,14 +146,23 @@ return function (source)
 				end
 				-- unknown character
 				if not typeof then
+<<<<<<< HEAD
 					io.write("<mosaic> ", line, ": unknown character found at source.")
+=======
+					io.write("<mosaic> ", lineIndex, ": unknown character found at source.")
+>>>>>>> c0e6c07 (1st alpha of the parser, added Lua type checking)
 					os.exit()
 				end
 				return typeof, source:sub(startIndex, index - 1), lineIndex, startIndex
 			until true
 		end
 	end
+<<<<<<< HEAD
 	return keywords, scan, function ()
+=======
+	---@return string?, string, number
+	return {}, scan, function ()
+>>>>>>> c0e6c07 (1st alpha of the parser, added Lua type checking)
 		local typeof, value, line, lastIndex = scan()
 		if lastIndex then
 			index = lastIndex
