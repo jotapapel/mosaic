@@ -1,15 +1,8 @@
 local scan = require "scanner"
 
----@type { typeof?: string, value: string, line: number }
-local current
----@type fun(): string?, string, number, number
-local pop
----@type fun(): string?, string, number
-local peek
----@type fun(): Expression?
-local parseExpression
----@type fun(): Expression|Statement
-local parseStatement
+---@type Lexeme, NextLexeme, CurrentLexeme
+local current, pop, peek
+local parseExpression, parseStatement
 
 --- Throw a local error.
 ---@param message string The error message.
@@ -52,7 +45,7 @@ local function suppose (supposed)
 	end
 end
 
----@return (Term|Expression)?
+---@return Expression?
 local function parseTerm ()
 	local typeof, value = current.typeof, current.value
 	---@alias UnaryExpression { kindof: "UnaryExpression", operator: "-" | "$" | "#" | "!", argument: Expression }
@@ -111,10 +104,10 @@ local function parseMemberExpression ()
 		end
 		record = { kindof = "MemberExpression", record = record, property = property, computed = computed }
 	end
-	return node
+	return record
 end
 
----@param caller (CallExpression|MemberExpression)?
+---@param caller? CallExpression|MemberExpression
 ---@return MemberExpression|CallExpression
 local function parseCallExpression (caller)
 	caller = parseMemberExpression()
@@ -188,6 +181,7 @@ local function parseRecordExpression ()
 	---@type RecordElement[]
 	local properties = {}
 	while current.typeof ~= "RightBracket" do
+		---@type Term?
 		local key
 		if current.typeof == "Identifier" then
 			key = parseTerm()
@@ -214,7 +208,7 @@ function parseExpression ()
 	return parseAssignmentExpression()
 end
 
----@return Statement|Expression
+---@return (Statement|Expression)?
 function parseStatement ()
 	local typeof, value, line = peek()
 	-- Comment
@@ -244,7 +238,7 @@ function parseStatement ()
 		local body = {}
 		---@type MemberExpression | Identifier
 		local name = parseMemberExpression()
-		---@type Identifier[]
+		---@type Expression[]
 		local parameters = {}
 		expect("LeftParenthesis", "missing '(' after <name>")
 		while current.typeof ~= "RightParenthesis" do
@@ -269,7 +263,8 @@ function parseStatement ()
 		local body = {}
 		local name = parseMemberExpression()
 		expect("LeftBrace", "Missing '{' after <name>")
-		local parent = parseExpression()
+		---@type Expression?
+		local parent = (current.typeof ~= "RightBrace") and parseExpression()
 		expect("RightBrace", "Missing '}'")
 		while current.typeof ~= "End" do
 			body[#body + 1] = parseStatement()
@@ -279,7 +274,7 @@ function parseStatement ()
 		return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body }
 	-- IfStatement
 	elseif typeof == "If" then
-		---@type { kindof: "IfStatement", test?: Expression, consequent: Statement[], alternate?: Statement[] }
+		---@type IfStatement
 		local node = { kindof = "IfStatement", consequent = {} }
 		---@type Statement[]
 		local consequent
@@ -322,9 +317,9 @@ function parseStatement ()
 	-- ForLoop
 	elseif typeof == "For" then
 		consume()
-		---@type Expression, Expression
+		---@type Expression?, Expression?
 		local goal, step
-		---@type Identifier[], Expression
+		---@type Identifier[]?, Expression?
 		local variable, iterable
 		---@type Expression?
 		local init = parseExpression()
@@ -355,10 +350,9 @@ function parseStatement ()
 end
 
 ---@param source string The raw source.
----@return (Statement|Expression)?
+---@return fun(): Statement?|Expression?
 return function (source)
 	current, pop, peek = scan(source)
-	---@return (Statement|Expression)?
 	return function ()
 		current.typeof, current.value, current.line = peek()
 		if current.typeof then
