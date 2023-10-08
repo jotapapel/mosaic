@@ -1,0 +1,79 @@
+{
+	"version": "0.1",
+	"name": "Lua",
+	"literals": {
+		"br": "\n",
+		"indent": "\t"
+	},
+	"templates": [
+		{
+			"templateof": "UnaryExpression",
+			"content": [
+				{
+					"condition": "(operator == '$')",
+					"value": "tostring(<argument>)"
+				},
+				{
+					"condition": "(operator == '#')",
+					"value": "tonumber(<argument>)"
+				},
+				{
+					"condition": "(operator == '!')",
+					"value": "not(<argument>)"
+				},
+				{
+					"condition": "(operator == '-')",
+					"value": "-<argument>"
+				}
+			]
+		},
+		{
+			"templateof": [
+				"Identifier",
+				"NumberLiteral",
+				"BooleanLiteral"
+			],
+			"content": "<value>"
+		},
+		{
+			"templateof": "StringLiteral",
+			"content": "'<value>'"
+		},
+		{
+			"templateof": "Undefined",
+			"content": "nil"
+		},
+		{
+			"templateof": "MemberExpression",
+			"content": [
+				{
+					"condition": "(computed == true)",
+					"value": "<record>[<property>]"
+				},
+				{
+					"condition": "(computed == false)",
+					"value": "<record>.<property>"
+				}
+			]
+		},
+		{
+			"templateof": "CallExpression",
+			"content": "<caller>(<table.concat(arguments, ', ')>)"
+		},
+		{
+			"templateof": [
+				"BinaryExpression",
+				"AssignmentExpression"
+			],
+			"content": "<left> <operator> <right>"
+		},
+		{
+			"templateof": "RecordLiteralExpression",
+			"content": "{ <table.concat(elements, ', ')> }"
+		},
+		{
+			"templateof": "ParenthesizedExpression",
+			"content": "(<node>)"
+		}
+	]
+}

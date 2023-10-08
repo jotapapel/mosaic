@@ -35,7 +35,7 @@ local function serialize (value, level, visited)
 end
 
 --- Display the value as a human readable string.
----@param value string The value to trace.
+---@param value string|number|boolean|table The value to trace.
 ---@param inline boolean? Display the result as a line.
 return function (value, inline)
 	value = serialize(value)
