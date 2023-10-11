@@ -43,17 +43,16 @@ local function serialize (value, level, visited)
 	return "nil"
 end
 
---- Display the value as a human readable string.
+--- Display the value as a valid JSON string.
 ---@param value string|number|boolean|table The value to trace.
 ---@param beautify boolean? Beautify the result.
+---@return string #The serialized value.
 local function encode (value, beautify)
 	value = serialize(value)
 	return beautify and value or value:gsub("[\n\t]", { ["\t"] = "", ["\n"] = string.char(32) })
 end
 
----@class JSON
----@field decode fun(filename: string): JSONValue?
----@field encode fun(value: string|number|boolean|table, beautify?: boolean)
+---@class jsonlib
 return {
 	decode = decode,
 	encode = encode
