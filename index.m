@@ -1,3 +1,4 @@
-@decoration1 @decoration2
-var a = 32
-var z
+var myVar = "HELLO WORLD!"
+function myFunction ()
+	return myVar
+end

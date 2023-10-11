@@ -8,6 +8,7 @@
 
 ---@alias NextLexeme fun(): string?, string, integer, integer
 ---@alias CurrentLexeme fun(): string, string, integer
+
 ---@alias ExpressionParser fun(): Expression?
 ---@alias StatementParser fun(): StatementExpression?
 
@@ -32,10 +33,10 @@
 
 ---@alias Comment { kindof: "Comment", content: string }
 ---@alias VariableDeclarator { kindof: "VariableDeclarator", identifier: Term, init?: Expression }
----@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: VariableDeclarator[], decorator?: string[] }
----@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Term|MemberExpression, parameters: Term[], body: BlockStatement[], decorator?: string[] }
+---@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: VariableDeclarator[], decorations?: string[] }
+---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Term|MemberExpression, parameters: Term[], body: BlockStatement[], decorations?: string[] }
 ---@alias ReturnStatement { kindof: "ReturnStatement", argument: Expression }
----@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Term|MemberExpression, parent: Expression, body: BlockStatement[], decorator?: string[] }
+---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Term|MemberExpression, parent: Expression, body: BlockStatement[], decorations?: string[] }
 ---@alias IfStatement { kindof: "IfStatement", test: Expression, consequent: BlockStatement[], alternate?: IfStatement|BlockStatement[] }
 ---@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: Statement[] }
 ---@alias BreakStatement { kindof: "BreakStatement" }
@@ -45,3 +46,5 @@
 ---@alias Statement Comment|VariableDeclaration|FunctionDeclaration|ReturnStatement|PrototypeDeclaration|IfStatement|WhileLoop|BreakStatement|ForLoop
 ---@alias BlockStatement Statement|AssignmentExpression|CallExpression
 ---@alias StatementExpression Statement|Expression
+
+---@alias JSONValue { [string]: JSONValue }|JSONValue[]|string|number|boolean

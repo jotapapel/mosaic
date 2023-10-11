@@ -1,5 +1,5 @@
 ---@type { [string]: true }
-local keywords = {
+local keywords <const> = {
 	["var"] = true, ["function"] = true, ["prototype"] = true,
 	["if"] = true, ["then"] = true, ["elseif"] = true, ["else"] = true,
 	["while"] = true, ["do"] = true,
@@ -9,10 +9,13 @@ local keywords = {
 }
 
 ---@param source string The raw source.
----@return Lexeme
 ---@return NextLexeme
 ---@return CurrentLexeme
 return function (source)
+	--- mask escaped characters
+	source = source:gsub("\\(.)", function (char)
+		return string.format("\\%03d", string.byte(char))
+	end)
 	local index, lineIndex, len = 1, 1, source:len()
 	local function scan ()
 		while index <= len do
@@ -31,10 +34,11 @@ return function (source)
 				elseif char == "-" then
 					typeof, index = "Minus", index + 1
 					if source:sub(index, index) == "-" then
-						typeof = "Comment"
+						typeof, index = "Comment", index + 1
 						while index <= len and source:sub(index, index):match("[^\n]") do
 							index = index + 1
 						end
+						fromIndex = lastIndex + 2
 					end
 				-- identifiers
 				elseif char:match("[_%a]") then
@@ -136,20 +140,21 @@ return function (source)
 						end
 					end
 				end
-				-- unknown character
+				-- unknown characters
 				if not typeof then
-					io.write("<mosaic> ", lineIndex, ": unknown character found at source.")
+					io.write("<mosaic> ", lineIndex, ": unknown character found at source.\n")
 					os.exit()
 				end
 				return typeof, source:sub(fromIndex or lastIndex, (toIndex or index) - 1), lineIndex, lastIndex
 			until true
 		end
 	end
-	return {}, scan, function ()
+	return scan, function ()
 		local typeof, value, line, startIndex = scan()
 		if startIndex then
 			index = startIndex
 		end
-		return typeof, value, line or lineIndex
+		return typeof, value or "<eof>", line or lineIndex
 	end
 end
+
