@@ -35,7 +35,7 @@ local function expect (expected, message)
 end
 
 --- If there is an specific lexeme as the current one, consume it, else, do nothing.
----@param supposed string|string|{ [string]: true } The supposed lexeme type.
+---@param supposed string|{ [string]: true } The supposed lexeme type.
 ---@return string? #The supposed lexeme value.
 local function suppose (supposed)
 	local lookup = (type(supposed) == "string") and { [supposed] = true } or supposed
@@ -318,11 +318,11 @@ function parseStatement ()
 				consume()
 				---@type { goal: Expression, step: Expression? } | { variable: Term[], iterable: Expression }
 				local condition
-				local lastValue, initial = current.value, parseExpression()
-				if initial and initial.kindof == "AssignmentExpression" then
+				local initial = parseExpression() or throw("<name> expected")
+				if initial.kindof == "AssignmentExpression" then
 					expect("To", "'to' expected")
 					condition = { init = initial, goal = parseExpression(), step = suppose("Step") and parseExpression() }
-				elseif initial and initial.kindof == "Identifier" then
+				elseif initial.kindof == "Identifier" then
 					---@type Term[]
 					local variable = { initial --[[@as Term]] }
 					suppose("Comma")
@@ -332,8 +332,6 @@ function parseStatement ()
 					end
 					expect("In", "'in' expected")
 					condition = { variable = variable, iterable = parseExpression() }
-				else
-					throw("<name> expected near '" .. lastValue .. "'")
 				end
 				expect("Do", "'do' missing")
 				---@type StatementExpression[]
@@ -350,14 +348,13 @@ function parseStatement ()
 end
 
 ---@param source string The raw source.
----@param program table The main AST table.
----@return StatementExpression[]
-return function (source, program)
+---@return StatementExpression[] #The AST table.
+return function (source)
 	current, pop, peek = {}, scan(source)
-	current.typeof, current.value, current.line = peek()
+	---@type StatementExpression[]
+	local program = {}
 	while current.typeof do
-		local node = parseStatement()
-		program[#program+1] = node
+		program[#program + 1] = parseStatement()
 	end
 	return program
 end

@@ -114,7 +114,7 @@ end
 ---@param source string
 ---@return JSONValue?
 return function (source)
-	current, pop, peek = scan(source)
+	current, pop, peek = {}, scan(source)
 	current.typeof, current.value, current.line = peek()
 	if current.typeof then
 		return decodeValue()

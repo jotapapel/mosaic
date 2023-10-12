@@ -1,5 +1,4 @@
 ---@param source string The raw source.
----@return Lexeme
 ---@return NextLexeme
 ---@return CurrentLexeme
 return function (source)
@@ -78,7 +77,7 @@ return function (source)
 			until true
 		end
 	end
-	return {}, scan, function ()
+	return scan, function ()
 		local typeof, value, line, startIndex = scan()
 		if startIndex then
 			index = startIndex
