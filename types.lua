@@ -48,3 +48,6 @@
 ---@alias StatementExpression Statement|Expression
 
 ---@alias JSONValue { [string]: JSONValue }|JSONValue[]|string|number|boolean
+
+---@alias ExpressionGenerator fun(node: Expression): string?
+---@alias StatementGenerator fun(node: StatementExpression): string?

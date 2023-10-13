@@ -1,9 +1,11 @@
-local json = require "json"
+--local json = require "json"
 local parse = require "frontend.parser"
+local generate = require "backend.generator"
 
 local file <close> = io.open("index.m") or error("Source file not found.")
 local source = file:read("*a")
 
-local program = { kindof = "Program", body = {} }
-program.body = parse(source, {})
-print(json.encode(program, true))
+local ast = parse(source)
+local output = generate(ast)
+
+print(output)
