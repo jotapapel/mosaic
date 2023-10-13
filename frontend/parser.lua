@@ -46,6 +46,19 @@ local function suppose (supposed)
 	end
 end
 
+---@param parseFunc function The node to check.
+---@param expected string|{ [string]: true } The expected kind.
+---@param message string The error message.
+---@return StatementExpression #The expected lexeme value.
+local function catch (parseFunc, expected, message)
+	local value, lookup = current.value, (type(expected) == "string") and { [expected] = true } or expected
+	local node = parseFunc() --[[@as StatementExpression]]
+	if not lookup[node.kindof] then
+		throw(message .. " near '" .. value .. "'")
+	end
+	return node
+end
+
 ---@return Term?
 local function parseTerm ()
 	local typeof, value = consume()
@@ -225,27 +238,27 @@ function parseStatement ()
 				consume()
 				---@type VariableDeclarator[]
 				local declarations = {}
-				if current.typeof and current.typeof == "Identifier" then
-					while current.typeof == "Identifier" do
-						local identifier = parseTerm()
-						local init = suppose("Equal") and parseExpression()
-						declarations[#declarations + 1] = { kindof = "VariableDeclarator", identifier = identifier, init = init }
-						if not suppose("Comma") then
-							break
-						end
+				while current.typeof == "Identifier" do
+					local identifier = catch(parseTerm, "Identifier", "<name> expected") --[[@as Identifier]]
+					local init = suppose("Equal") and parseExpression()
+					declarations[#declarations + 1] = { kindof = "VariableDeclarator", identifier = identifier, init = init }
+					if not suppose("Comma") then
+						break
 					end
-				else
+				end
+				if #declarations == 0 then
 					throw("<name> expected near '" .. current.value .. "'")
 				end
 				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations }
 			-- FunctionDeclaration
 			elseif typeof == "Function" then
 				consume()
-				---@type BlockStatement[], Expression?, Expression[]
-				local body, name, parameters = {}, parseMemberExpression(), {}
+				---@type BlockStatement[], Identifier[]
+				local body, parameters = {}, {}
+				local name = catch(parseMemberExpression, { ["MemberExpression"] = true, ["Identifier"] = true }, "<name> expected") --[[@as Identifier|MemberExpression]]
 				expect("LeftParenthesis", "Missing '(' after <name>")
 				while current.typeof ~= "RightParenthesis" do
-					parameters[#parameters + 1] = parseExpression()
+					parameters[#parameters + 1] = catch(parseExpression, "Identifier", "<name> expected") --[[@as Identifier]]
 					suppose("Comma")
 				end
 				expect("RightParenthesis", "')' expected")
@@ -261,8 +274,9 @@ function parseStatement ()
 			-- PrototypeDeclaration
 			elseif typeof == "Prototype" then
 				consume()
-				---@type BlockStatement[], Expression?
-				local body, name = {}, parseMemberExpression()
+				---@type BlockStatement[]
+				local body = {}
+				local name = catch(parseMemberExpression, { ["MemberExpression"] = true, ["Identifier"] = true }, "<name> expected") --[[@as Identifier|MemberExpression]]
 				expect("LeftBrace", "Missing '{' after <name>")
 				---@type Expression?
 				local parent = (current.typeof ~= "RightBrace") and parseExpression()
@@ -274,6 +288,23 @@ function parseStatement ()
 				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }
 			-- IfStatement
 			elseif typeof == "If" then
+				local node, consequent
+				while current.typeof and current.typeof ~= "End" do
+					local typeof = current.typeof
+					if suppose({ ["If"] = true, ["Elseif"] = true }) then
+						node = { kindof = "IfStatement", test = (typeof == "If") and parseExpression(), consequent = {} } --[[@as IfStatement]]
+					elseif node and suppose("Else") then
+						consequent = node.consequent
+					end
+					repeat
+						consequent[#consequent + 1] = parseStatement()
+						if suppose({ ["Elseif"] = true, ["Else"] = true }) then
+							node = 
+						end
+					until true
+				end
+
+
 				---@type IfStatement|BlockStatement[]
 				local node = { kindof = "IfStatement", consequent = {} }
 				---@type Statement[]
@@ -318,7 +349,7 @@ function parseStatement ()
 				consume()
 				---@type { goal: Expression, step: Expression? } | { variable: Term[], iterable: Expression }
 				local condition
-				local initial = parseExpression() or throw("<name> expected")
+				local initial = parseExpression() --[[@as Expression]]
 				if initial.kindof == "AssignmentExpression" then
 					expect("To", "'to' expected")
 					condition = { init = initial, goal = parseExpression(), step = suppose("Step") and parseExpression() }
@@ -351,6 +382,7 @@ end
 ---@return StatementExpression[] #The AST table.
 return function (source)
 	current, pop, peek = {}, scan(source)
+	current.typeof, current.value, current.line = peek()
 	---@type StatementExpression[]
 	local program = {}
 	while current.typeof do

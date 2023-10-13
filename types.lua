@@ -32,11 +32,11 @@
 ---@alias Expression Term|MemberExpression|CallExpression|BinaryOperator|RecordLiteralExpression|AssignmentExpression|ParenthesizedExpression
 
 ---@alias Comment { kindof: "Comment", content: string }
----@alias VariableDeclarator { kindof: "VariableDeclarator", identifier: Term, init?: Expression }
+---@alias VariableDeclarator { kindof: "VariableDeclarator", identifier: Identifier, init?: Expression }
 ---@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: VariableDeclarator[], decorations?: string[] }
----@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Term|MemberExpression, parameters: Term[], body: BlockStatement[], decorations?: string[] }
+---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Identifier|MemberExpression, parameters: Identifier[], body: BlockStatement[], decorations?: string[] }
 ---@alias ReturnStatement { kindof: "ReturnStatement", argument: Expression }
----@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Term|MemberExpression, parent: Expression, body: BlockStatement[], decorations?: string[] }
+---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Identifier|MemberExpression, parent: Expression, body: BlockStatement[], decorations?: string[] }
 ---@alias IfStatement { kindof: "IfStatement", test: Expression, consequent: BlockStatement[], alternate?: IfStatement|BlockStatement[] }
 ---@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: Statement[] }
 ---@alias BreakStatement { kindof: "BreakStatement" }
