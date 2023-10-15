@@ -1,0 +1,853 @@
+[
+	{
+		"body": [
+			{
+				"kindof": "VariableDeclaration",
+				"declarations": [
+					{
+						"kindof": "VariableDeclarator",
+						"init": {
+							"value": 6,
+							"kindof": "NumberLiteral"
+						},
+						"identifier": {
+							"value": "HEIGHT",
+							"kindof": "Identifier"
+						}
+					},
+					{
+						"kindof": "VariableDeclarator",
+						"init": {
+							"elements": [
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": "address",
+										"kindof": "Identifier"
+									},
+									"key": "(visited)"
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": 0,
+										"kindof": "NumberLiteral"
+									},
+									"key": "(visited)"
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": "adjust",
+										"kindof": "Identifier"
+									},
+									"key": "(visited)"
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"elements": [
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": 1,
+													"kindof": "NumberLiteral"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "#*?%^mw",
+													"kindof": "StringLiteral"
+												}
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"argument": {
+														"value": 1,
+														"kindof": "NumberLiteral"
+													},
+													"kindof": "UnaryExpression",
+													"operator": "-"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "%%+/<>\\{}IT",
+													"kindof": "StringLiteral"
+												}
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"argument": {
+														"value": 2,
+														"kindof": "NumberLiteral"
+													},
+													"kindof": "UnaryExpression",
+													"operator": "-"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "(),;%[%]`1jl",
+													"kindof": "StringLiteral"
+												}
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"argument": {
+														"value": 3,
+														"kindof": "NumberLiteral"
+													},
+													"kindof": "UnaryExpression",
+													"operator": "-"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "!'%.:|i",
+													"kindof": "StringLiteral"
+												}
+											}
+										],
+										"kindof": "RecordLiteralExpression"
+									}
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": "width",
+										"kindof": "Identifier"
+									},
+									"key": "(visited)"
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": 4,
+										"kindof": "NumberLiteral"
+									},
+									"key": "(visited)"
+								}
+							],
+							"kindof": "RecordLiteralExpression"
+						},
+						"identifier": {
+							"value": "NORMAL",
+							"kindof": "Identifier"
+						}
+					},
+					{
+						"kindof": "VariableDeclarator",
+						"init": {
+							"elements": [
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": "address",
+										"kindof": "Identifier"
+									},
+									"key": "(visited)"
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": 112,
+										"kindof": "NumberLiteral"
+									},
+									"key": "(visited)"
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": "adjust",
+										"kindof": "Identifier"
+									},
+									"key": "(visited)"
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"elements": [
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": 3,
+													"kindof": "NumberLiteral"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "mw",
+													"kindof": "StringLiteral"
+												}
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": 2,
+													"kindof": "NumberLiteral"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "#",
+													"kindof": "StringLiteral"
+												}
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": 1,
+													"kindof": "NumberLiteral"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "*%?^~",
+													"kindof": "StringLiteral"
+												}
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"argument": {
+														"value": 1,
+														"kindof": "NumberLiteral"
+													},
+													"kindof": "UnaryExpression",
+													"operator": "-"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "1%%+/<>\\{}T",
+													"kindof": "StringLiteral"
+												}
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"argument": {
+														"value": 2,
+														"kindof": "NumberLiteral"
+													},
+													"kindof": "UnaryExpression",
+													"operator": "-"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "(),;%[%]`jl",
+													"kindof": "StringLiteral"
+												}
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"argument": {
+														"value": 3,
+														"kindof": "NumberLiteral"
+													},
+													"kindof": "UnaryExpression",
+													"operator": "-"
+												},
+												"key": "(visited)"
+											},
+											{
+												"kindof": "RecordElement",
+												"value": {
+													"value": "!'%.:|i",
+													"kindof": "StringLiteral"
+												}
+											}
+										],
+										"kindof": "RecordLiteralExpression"
+									}
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": "width",
+										"kindof": "Identifier"
+									},
+									"key": "(visited)"
+								},
+								{
+									"kindof": "RecordElement",
+									"value": {
+										"value": 5,
+										"kindof": "NumberLiteral"
+									},
+									"key": "(visited)"
+								}
+							],
+							"kindof": "RecordLiteralExpression"
+						},
+						"identifier": {
+							"value": "BOLD",
+							"kindof": "Identifier"
+						}
+					}
+				]
+			},
+			{
+				"parameters": [
+					{
+						"value": "self",
+						"kindof": "Identifier"
+					},
+					{
+						"value": "value",
+						"kindof": "Identifier"
+					},
+					{
+						"value": "arg1",
+						"kindof": "Identifier"
+					},
+					{
+						"value": "y",
+						"kindof": "Identifier"
+					},
+					{
+						"value": "colour",
+						"kindof": "Identifier"
+					},
+					{
+						"value": "style",
+						"kindof": "Identifier"
+					}
+				],
+				"body": [
+					{
+						"kindof": "VariableDeclaration",
+						"declarations": [
+							{
+								"kindof": "VariableDeclarator",
+								"init": {
+									"value": 0,
+									"kindof": "NumberLiteral"
+								},
+								"identifier": {
+									"value": "width",
+									"kindof": "Identifier"
+								}
+							},
+							{
+								"kindof": "VariableDeclarator",
+								"init": {
+									"right": {
+										"argument": {
+											"value": "value",
+											"kindof": "Identifier"
+										},
+										"kindof": "UnaryExpression",
+										"operator": "$"
+									},
+									"kindof": "BinaryExpression",
+									"left": {
+										"arguments": [
+											{
+												"argument": {
+													"value": "value",
+													"kindof": "Identifier"
+												},
+												"kindof": "UnaryExpression",
+												"operator": "$"
+											},
+											{
+												"value": "(.-)\n",
+												"kindof": "StringLiteral"
+											}
+										],
+										"kindof": "CallExpression",
+										"caller": {
+											"property": {
+												"value": "match",
+												"kindof": "Identifier"
+											},
+											"kindof": "MemberExpression",
+											"record": {
+												"value": "string",
+												"kindof": "Identifier"
+											},
+											"computed": false
+										}
+									},
+									"operator": "or"
+								},
+								"identifier": {
+									"value": "str",
+									"kindof": "Identifier"
+								}
+							},
+							{
+								"kindof": "VariableDeclarator",
+								"init": {
+									"value": "arg1",
+									"kindof": "Identifier"
+								},
+								"identifier": {
+									"value": "x",
+									"kindof": "Identifier"
+								}
+							},
+							{
+								"kindof": "VariableDeclarator",
+								"init": {
+									"right": {
+										"value": "arg1",
+										"kindof": "Identifier"
+									},
+									"kindof": "BinaryExpression",
+									"left": {
+										"value": "style",
+										"kindof": "Identifier"
+									},
+									"operator": "or"
+								},
+								"identifier": {
+									"value": "style",
+									"kindof": "Identifier"
+								}
+							}
+						]
+					},
+					{
+						"arguments": [
+							{
+								"value": 15,
+								"kindof": "NumberLiteral"
+							},
+							{
+								"right": {
+									"value": 15,
+									"kindof": "NumberLiteral"
+								},
+								"kindof": "BinaryExpression",
+								"left": {
+									"value": "colour",
+									"kindof": "Identifier"
+								},
+								"operator": "or"
+							}
+						],
+						"kindof": "CallExpression",
+						"caller": {
+							"property": {
+								"value": "pal",
+								"kindof": "Identifier"
+							},
+							"kindof": "MemberExpression",
+							"record": {
+								"value": "graphics",
+								"kindof": "Identifier"
+							},
+							"computed": false
+						}
+					},
+					{
+						"condition": {
+							"goal": {
+								"arguments": [
+									{
+										"value": "str",
+										"kindof": "Identifier"
+									}
+								],
+								"kindof": "CallExpression",
+								"caller": {
+									"property": {
+										"value": "len",
+										"kindof": "Identifier"
+									},
+									"kindof": "MemberExpression",
+									"record": {
+										"value": "string",
+										"kindof": "Identifier"
+									},
+									"computed": false
+								}
+							},
+							"init": {
+								"right": {
+									"value": 1,
+									"kindof": "NumberLiteral"
+								},
+								"kindof": "AssignmentExpression",
+								"left": {
+									"value": "index",
+									"kindof": "Identifier"
+								},
+								"operator": "="
+							}
+						},
+						"kindof": "ForLoop",
+						"body": [
+							{
+								"kindof": "VariableDeclaration",
+								"declarations": [
+									{
+										"kindof": "VariableDeclarator",
+										"init": {
+											"arguments": [
+												{
+													"value": "str",
+													"kindof": "Identifier"
+												},
+												{
+													"value": "index",
+													"kindof": "Identifier"
+												},
+												{
+													"value": "index",
+													"kindof": "Identifier"
+												}
+											],
+											"kindof": "CallExpression",
+											"caller": {
+												"property": {
+													"value": "sub",
+													"kindof": "Identifier"
+												},
+												"kindof": "MemberExpression",
+												"record": {
+													"value": "string",
+													"kindof": "Identifier"
+												},
+												"computed": false
+											}
+										},
+										"identifier": {
+											"value": "char",
+											"kindof": "Identifier"
+										}
+									},
+									{
+										"kindof": "VariableDeclarator",
+										"init": {
+											"property": {
+												"value": "width",
+												"kindof": "Identifier"
+											},
+											"kindof": "MemberExpression",
+											"record": {
+												"value": "style",
+												"kindof": "Identifier"
+											},
+											"computed": false
+										},
+										"identifier": {
+											"value": "charW",
+											"kindof": "Identifier"
+										}
+									}
+								]
+							},
+							{
+								"condition": {
+									"variable": [
+										{
+											"value": "adj",
+											"kindof": "Identifier"
+										},
+										{
+											"value": "patt",
+											"kindof": "Identifier"
+										}
+									],
+									"iterable": {
+										"arguments": [
+											{
+												"property": {
+													"value": "adjust",
+													"kindof": "Identifier"
+												},
+												"kindof": "MemberExpression",
+												"record": {
+													"value": "style",
+													"kindof": "Identifier"
+												},
+												"computed": false
+											}
+										],
+										"kindof": "CallExpression",
+										"caller": {
+											"property": {
+												"value": "each",
+												"kindof": "Identifier"
+											},
+											"kindof": "MemberExpression",
+											"record": {
+												"value": "Record",
+												"kindof": "Identifier"
+											},
+											"computed": false
+										}
+									}
+								},
+								"kindof": "ForLoop",
+								"body": [
+									{
+										"consequent": [
+											{
+												"right": {
+													"right": {
+														"value": "adjust",
+														"kindof": "Identifier"
+													},
+													"kindof": "BinaryExpression",
+													"left": {
+														"value": "charW",
+														"kindof": "Identifier"
+													},
+													"operator": "+"
+												},
+												"kindof": "AssignmentExpression",
+												"left": {
+													"value": "charW",
+													"kindof": "Identifier"
+												},
+												"operator": "="
+											}
+										],
+										"kindof": "IfStatement",
+										"test": {
+											"arguments": [
+												{
+													"value": "char",
+													"kindof": "Identifier"
+												},
+												{
+													"arguments": [
+														{
+															"value": "[%s]",
+															"kindof": "StringLiteral"
+														},
+														{
+															"value": "patt",
+															"kindof": "Identifier"
+														}
+													],
+													"kindof": "CallExpression",
+													"caller": {
+														"property": {
+															"value": "format",
+															"kindof": "Identifier"
+														},
+														"kindof": "MemberExpression",
+														"record": {
+															"value": "string",
+															"kindof": "Identifier"
+														},
+														"computed": false
+													}
+												}
+											],
+											"kindof": "CallExpression",
+											"caller": {
+												"property": {
+													"value": "match",
+													"kindof": "Identifier"
+												},
+												"kindof": "MemberExpression",
+												"record": {
+													"value": "string",
+													"kindof": "Identifier"
+												},
+												"computed": false
+											}
+										}
+									}
+								]
+							},
+							{
+								"consequent": [
+									{
+										"arguments": [
+											{
+												"right": {
+													"value": 32,
+													"kindof": "NumberLiteral"
+												},
+												"kindof": "BinaryExpression",
+												"left": {
+													"right": {
+														"arguments": [
+															{
+																"value": "char",
+																"kindof": "Identifier"
+															}
+														],
+														"kindof": "CallExpression",
+														"caller": {
+															"property": {
+																"value": "byte",
+																"kindof": "Identifier"
+															},
+															"kindof": "MemberExpression",
+															"record": {
+																"value": "string",
+																"kindof": "Identifier"
+															},
+															"computed": false
+														}
+													},
+													"kindof": "BinaryExpression",
+													"left": {
+														"property": {
+															"value": "address",
+															"kindof": "Identifier"
+														},
+														"kindof": "MemberExpression",
+														"record": {
+															"value": "style",
+															"kindof": "Identifier"
+														},
+														"computed": false
+													},
+													"operator": "+"
+												},
+												"operator": "-"
+											},
+											{
+												"right": {
+													"value": "width",
+													"kindof": "Identifier"
+												},
+												"kindof": "BinaryExpression",
+												"left": {
+													"value": "x",
+													"kindof": "Identifier"
+												},
+												"operator": "+"
+											},
+											{
+												"value": 0,
+												"kindof": "NumberLiteral"
+											}
+										],
+										"kindof": "CallExpression",
+										"caller": {
+											"property": {
+												"value": "sprite",
+												"kindof": "Identifier"
+											},
+											"kindof": "MemberExpression",
+											"record": {
+												"value": "graphics",
+												"kindof": "Identifier"
+											},
+											"computed": false
+										}
+									}
+								],
+								"kindof": "IfStatement",
+								"test": {
+									"value": "y",
+									"kindof": "Identifier"
+								}
+							},
+							{
+								"right": {
+									"right": {
+										"value": "charW",
+										"kindof": "Identifier"
+									},
+									"kindof": "BinaryExpression",
+									"left": {
+										"value": "width",
+										"kindof": "Identifier"
+									},
+									"operator": "+"
+								},
+								"kindof": "AssignmentExpression",
+								"left": {
+									"value": "width",
+									"kindof": "Identifier"
+								},
+								"operator": "="
+							}
+						]
+					},
+					{
+						"arguments": {},
+						"kindof": "CallExpression",
+						"caller": {
+							"property": {
+								"value": "pal",
+								"kindof": "Identifier"
+							},
+							"kindof": "MemberExpression",
+							"record": {
+								"value": "graphics",
+								"kindof": "Identifier"
+							},
+							"computed": false
+						}
+					},
+					{
+						"arguments": [
+							{
+								"right": {
+									"value": 1,
+									"kindof": "NumberLiteral"
+								},
+								"kindof": "BinaryExpression",
+								"left": {
+									"value": "width",
+									"kindof": "Identifier"
+								},
+								"operator": "-"
+							},
+							{
+								"property": {
+									"value": "HEIGHT",
+									"kindof": "Identifier"
+								},
+								"kindof": "MemberExpression",
+								"record": {
+									"value": "self",
+									"kindof": "Identifier"
+								},
+								"computed": false
+							}
+						],
+						"kindof": "ReturnStatement"
+					}
+				],
+				"name": {
+					"value": "print",
+					"kindof": "Identifier"
+				},
+				"kindof": "FunctionDeclaration"
+			}
+		],
+		"name": {
+			"value": "Font",
+			"kindof": "Identifier"
+		},
+		"kindof": "PrototypeDeclaration",
+		"parent": false
+	}
+]

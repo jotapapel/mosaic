@@ -25,7 +25,7 @@
 ---@alias CallExpression { kindof: "CallExpression", caller: Expression, arguments: Expression[] }
 ---@alias BinaryOperator "and"|"or"|"=="|">"|"<"|">="|"<="|"<>"|"+"|"-"|"*"|"/"|"^"|"%"
 ---@alias BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: BinaryOperator, right: Expression }
----@alias RecordElement { kindof: "RecordElement", key?: Identifier, value: Expression }
+---@alias RecordElement { kindof: "RecordElement", key?: StringLiteral, value: Expression }
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentExpression { kindof: "AssignmentExpression", left: Term, operator: "=", right: Expression }
 ---@alias ParenthesizedExpression { kindof: "ParenthesizedExpression", node: Expression }
@@ -35,7 +35,7 @@
 ---@alias VariableDeclarator { kindof: "VariableDeclarator", identifier: Identifier, init?: Expression }
 ---@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: VariableDeclarator[], decorations?: string[] }
 ---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Identifier|MemberExpression, parameters: Identifier[], body: BlockStatement[], decorations?: string[] }
----@alias ReturnStatement { kindof: "ReturnStatement", argument: Expression }
+---@alias ReturnStatement { kindof: "ReturnStatement", arguments: Expression[] }
 ---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Identifier|MemberExpression, parent: Expression, body: BlockStatement[], decorations?: string[] }
 ---@alias IfStatement { kindof: "IfStatement", test: Expression, consequent: BlockStatement[], alternate?: IfStatement|BlockStatement[] }
 ---@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: BlockStatement[] }

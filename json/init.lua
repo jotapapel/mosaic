@@ -22,7 +22,7 @@ local function serialize (value, level, visited)
 		return tostring(value)
 	elseif typeof == "table" then
 		if visited[value] then
-			return "(visited)"
+			return "\"(visited)\""
 		end
 		visited[value] = true
 		local parts, delimiter, indent = {}, "{\n%s}", string.rep("\t", level)

@@ -113,6 +113,9 @@ return function (source)
 						typeof = "RightParenthesis"
 					elseif char == "." then
 						typeof = "Dot"
+						if source:sub(index + 1, index + 2) == ".." then
+							index, typeof = index + 2, "Ellipsis"
+						end
 					elseif char == "," then
 						typeof = "Comma"
 					elseif char == ":" then
