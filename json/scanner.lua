@@ -2,15 +2,12 @@
 ---@return NextLexeme
 ---@return CurrentLexeme
 return function (source)
-	source = source:gsub("\\(.)", function (char)
-		return string.format("\\%03d", string.byte(char))
-	end)
+	source = source:gsub("\\(.)", function (char) return string.format("\\%03d", string.byte(char)) end)
 	local index, lineIndex, len = 1, 1, source:len()
 	local function scan ()
 		while index <= len do
 			repeat
-				---@type string?, integer?, integer?
-				local typeof, fromIndex, toIndex
+				local typeof, fromIndex, toIndex ---@type string?, integer?, integer?
 				local char, lastIndex = source:sub(index, index), index
 				-- whitespace
 				if char:match("%s") then

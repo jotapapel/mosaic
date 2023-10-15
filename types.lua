@@ -25,7 +25,7 @@
 ---@alias CallExpression { kindof: "CallExpression", caller: Expression, arguments: Expression[] }
 ---@alias BinaryOperator "and"|"or"|"=="|">"|"<"|">="|"<="|"<>"|"+"|"-"|"*"|"/"|"^"|"%"
 ---@alias BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: BinaryOperator, right: Expression }
----@alias RecordElement { kindof: "RecordElement", key?: Term, value: Expression }
+---@alias RecordElement { kindof: "RecordElement", key?: Identifier, value: Expression }
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentExpression { kindof: "AssignmentExpression", left: Term, operator: "=", right: Expression }
 ---@alias ParenthesizedExpression { kindof: "ParenthesizedExpression", node: Expression }
@@ -38,10 +38,10 @@
 ---@alias ReturnStatement { kindof: "ReturnStatement", argument: Expression }
 ---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Identifier|MemberExpression, parent: Expression, body: BlockStatement[], decorations?: string[] }
 ---@alias IfStatement { kindof: "IfStatement", test: Expression, consequent: BlockStatement[], alternate?: IfStatement|BlockStatement[] }
----@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: Statement[] }
+---@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: BlockStatement[] }
 ---@alias BreakStatement { kindof: "BreakStatement" }
 ---@alias NumericLoopCondition { init: AssignmentExpression, goal: Expression, step?: Expression }
----@alias IterationLoopCondition { variable: Term[], iterable: Expression }
+---@alias IterationLoopCondition { variable: Identifier[], iterable: Expression }
 ---@alias ForLoop { kindof: "ForLoop", condition: NumericLoopCondition|IterationLoopCondition, body: BlockStatement[] }
 ---@alias Statement Comment|VariableDeclaration|FunctionDeclaration|ReturnStatement|PrototypeDeclaration|IfStatement|WhileLoop|BreakStatement|ForLoop
 ---@alias BlockStatement Statement|AssignmentExpression|CallExpression

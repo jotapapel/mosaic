@@ -1,5 +1,1 @@
-if a then
-	-- consequent
-else
-	-- alternate
-end
+function 8 () end

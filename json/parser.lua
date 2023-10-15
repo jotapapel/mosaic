@@ -1,8 +1,8 @@
 local scan = require "json.scanner"
----@type Lexeme, NextLexeme, CurrentLexeme
-local current, pop, peek
----@type fun(): JSONValue
-local decodeValue
+
+local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
+local decodeValue ---@type fun(): JSONValue
+local escapedCharacters <const> = { [116] = "\t", [92] = "\\", [34] = "\"", [98] = "\b", [102] = "\f", [110] = "\n", [114] = "\r" }
 
 --- Throw a local error.
 ---@param message string The error message.
@@ -20,32 +20,30 @@ local function consume ()
 	return typeof, value
 end
 
---- Expect a specific lexeme from the scanner, throw an error when not found.
----@param expected string|{ [string]: true } The expected type.
+--- Expect a specific lexeme(s) from the scanner, throw an error when not found.
 ---@param message string The error message.
----@return string #The expected lexeme value.
-local function expect (expected, message)
-	local lookup = (type(expected) == "string") and { [expected] = true } or expected
+---@param ... string The expected types.
+local function expect (message, ...)
+	local lookup = {}
+	for _, expected in ipairs({...}) do lookup[expected] = true end
 	local typeof, value = consume()
 	if not lookup[typeof] then
 		throw(message .. " near '" .. value .. "'")
 	end
-	return value
 end
 
---- If there is an specific lexeme as the current one, consume it, else, do nothing.
----@param supposed string|{ [string]: true } The supposed lexeme type.
+--- Suppose a specific lexeme(s) from the scanner, consume it when found, do nothing otherwise.
+---@param ... string The supposed lexeme types.
 ---@return string? #The supposed lexeme value.
-local function suppose (supposed)
-	local lookup = (type(supposed) == "string") and { [supposed] = true } or supposed
+local function suppose (...)
+	local lookup = {}
+	for _, expected in ipairs({...}) do lookup[expected] = true end
 	local typeof, value = peek()
 	if lookup[typeof] then
 		consume()
 		return value
 	end
 end
-
-local escapedCharacters = { [116] = "\t", [92] = "\\", [34] = "\"", [98] = "\b", [102] = "\f", [110] = "\n", [114] = "\r" }
 
 ---@return string|number|boolean|nil
 local function decodeLiteral ()
@@ -77,13 +75,12 @@ local function decodeArray ()
 		return decodeLiteral() --[[@as JSONValue]]
 	end
 	consume()
-	---@type JSONValue[]
-	local tbl = {}
+	local tbl = {} ---@type JSONValue[]
 	while current.typeof ~= "RightBracket" do
 		tbl[#tbl + 1] = decodeValue()
 		suppose("Comma")
 	end
-	expect("RightBracket", "']' expected")
+	expect("']' expected", "RightBracket")
 	return tbl
 end
 
@@ -93,11 +90,10 @@ local function decodeObject ()
 		return decodeArray() --[[@as JSONValue]]
 	end
 	consume()
-	---@type { [string]: JSONValue }
-	local tbl = {}
+	local tbl = {} ---@type { [string]: JSONValue }
 	while current.typeof ~= "RightBrace" do
-		local key = expect("String", "<key> expected")
-		expect("Colon", "':' missing after ")
+		local key = expect("<key> expected", "String") --[[@as string]]
+		expect("':' missing after ", "Colon")
 		local value = decodeValue()
 		suppose("Comma")
 		tbl[key] = value
