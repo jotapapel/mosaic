@@ -31,6 +31,7 @@ local function expect (message, ...)
 	if not lookup[typeof] then
 		throw(message .. " near '" .. value .. "'")
 	end
+	return value
 end
 
 --- Suppose a specific lexeme(s) from the scanner, consume it when found, do nothing otherwise.
@@ -229,44 +230,43 @@ function parseStatement ()
 				return { kindof = "Comment", content = value }
 			elseif typeof == "At" then
 				decorations = {}
-				while current.typeof == "At" do
-					consume()
+				while suppose("At") do
 					decorations[#decorations + 1] = expect("<name> expected", "Identifier")
 				end
 				break
 			-- VariableDeclaration
 			elseif typeof == "Var" then
 				consume()
-				local declarations = {}
+				local declarations = {} ---@type VariableDeclarator[]
 				repeat
-					local identifier = catch("<name> expected", parseTerm, "Identifier")
+					local identifier = catch("<name> expected", parseTerm, "Identifier") --[[@as Identifier]]
 					local init = suppose("Equal") and parseExpression()
-					declarations[#declarations + 1] = { kindof = "VariableDeclarator", identifier = identifier --[[@as Identifier]], init = init }
-					suppose("Comma")
-				until current.typeof ~= "Identifier"
-				return { kindof = "VariableDeclaration", declarations = declarations --[=[@as VariableDeclarator[]]=], decorations = decorations }
+					declarations[#declarations + 1] = { kindof = "VariableDeclarator", identifier = identifier, init = init }
+				until not suppose("Comma")
+				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations }
 			-- FunctionDeclaration
 			elseif typeof == "Function" then
 				consume()
 				local body, parameters = {}, {} ---@type BlockStatement[], Identifier[]
-				local name = catch("<name> expected", parseMemberExpression, "Identifier", "MemberExpression")
+				local name = catch("<name> expected", parseMemberExpression, "Identifier", "MemberExpression") --[[@as Identifier|MemberExpression]]
 				expect("'(' expected after <name>", "LeftParenthesis")
 				while current.typeof == "Identifier" do
 					parameters[#parameters + 1] = catch("<name> expected", parseTerm, "Identifier")
-					suppose("Comma")
+					if not suppose("Comma") then
+						break
+					end
 				end
 				expect("')' expected", "RightParenthesis")
 				while current.typeof ~= "End" do
 					body[#body + 1] = parseStatement()
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'function' at line %s)" or "", line), "End")
-				return { kindof = "FunctionDeclaration", name = name --[[@as Identifier|MemberExpression]], parameters = parameters, body = body, decorations = decorations }
+				return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body, decorations = decorations }
 			-- ReturnStatement
 			elseif typeof == "Return" then
 				consume()
 				local arguments = { parseExpression() } ---@type Expression[]
-				while current.typeof == "Comma" do
-					consume()
+				while suppose("Comma") do
 					arguments[#arguments + 1] = parseExpression()
 				end
 				return { kindof = "ReturnStatement", arguments = arguments }
@@ -285,31 +285,30 @@ function parseStatement ()
 				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }
 			-- IfStatement
 			elseif typeof == "If" then
-				local node = { kindof = "IfStatement" }
+				local node = {}
 				local latest = node --[[@as IfStatement]]
-				while current.typeof ~= "End" do
+				repeat
 					if suppose("If", "Elseif") then
-						latest.test, latest.consequent = parseExpression(), {}
+						latest.kindof, latest.test, latest.consequent = "IfStatement", parseExpression(), {}
 						expect("'then' missing", "Then")
 					end
 					repeat
 						local target = latest.consequent or latest
 						target[#target + 1] = parseStatement()
 						if current.typeof == "Elseif" or suppose("Else") then
-							latest.alternate = (current.typeof == "Elseif") and { kindof = "IfStatement" } or {}
+							latest.alternate = {}
 							latest = latest.alternate
 						end
 					until current.typeof == "Elseif" or current.typeof == "End"
-				end
+				until current.typeof == "End"
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'if' at line %s)" or "", line), "End")
 				return node
 			-- WhileLoop
 			elseif typeof == "While" then
 				consume()
-				local condition = parseExpression()
+				local condition = parseExpression() --[[@as Expression]]
 				expect("'do' expected", "Do")
-				---@type Statement[]
-				local body = {}
+				local body = {} ---@type Statement[]
 				while current.typeof ~= "End" do
 					body[#body + 1] = parseStatement()
 				end
