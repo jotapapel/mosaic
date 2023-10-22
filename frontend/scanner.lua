@@ -1,11 +1,11 @@
 ---@type { [string]: true }
 local keywords <const> = {
-	["var"] = true, ["function"] = true, ["prototype"] = true,
+	["var"] = true, ["function"] = true, ["return"] = true,
+	["prototype"] = true, ["self"] = true, ["super"] = true,
 	["if"] = true, ["then"] = true, ["elseif"] = true, ["else"] = true,
-	["while"] = true, ["do"] = true,
+	["while"] = true, ["do"] = true, ["break"] = true,
 	["for"] = true, ["to"] = true, ["step"] = true, ["in"] = true,
-	["return"] = true, ["break"] = true, ["end"] = true,
-	["and"] = true, ["or"] = true
+	["end"] = true, ["and"] = true, ["or"] = true
 }
 
 ---@param source string The raw source.
@@ -113,7 +113,7 @@ return function (source)
 						typeof = "RightParenthesis"
 					elseif char == "." then
 						typeof = "Dot"
-						if source:sub(index + 1, index + 2) == ".." then
+						if source:sub(index, index + 1) == ".." then
 							index, typeof = index + 2, "Ellipsis"
 						end
 					elseif char == "," then

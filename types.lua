@@ -12,8 +12,7 @@
 ---@alias ExpressionParser fun(): Expression?
 ---@alias StatementParser fun(): StatementExpression?
 
----@alias UnaryOperator "-"|"$"|"#"|"!"
----@alias UnaryExpression { kindof: "UnaryExpression", operator: UnaryOperator, argument: Expression }
+---@alias UnaryExpression { kindof: "UnaryExpression", operator: "-"|"$"|"#"|"!", argument: Expression }
 ---@alias Identifier { kindof: "Identifier", value: string }
 ---@alias StringLiteral { kindof: "StringLiteral", value: string }
 ---@alias NumberLiteral { kindof: "NumberLiteral", value: number }
@@ -25,11 +24,11 @@
 ---@alias CallExpression { kindof: "CallExpression", caller: Expression, arguments: Expression[] }
 ---@alias BinaryOperator "and"|"or"|"=="|">"|"<"|">="|"<="|"<>"|"+"|"-"|"*"|"/"|"^"|"%"
 ---@alias BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: BinaryOperator, right: Expression }
----@alias RecordElement { kindof: "RecordElement", key?: StringLiteral, value: Expression }
+---@alias RecordElement { kindof: "RecordElement", key?: (UnaryExpression|Identifier|NumberLiteral)?, value: Expression }
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentExpression { kindof: "AssignmentExpression", left: Term, operator: "=", right: Expression }
 ---@alias ParenthesizedExpression { kindof: "ParenthesizedExpression", node: Expression }
----@alias Expression Term|MemberExpression|CallExpression|BinaryOperator|RecordLiteralExpression|AssignmentExpression|ParenthesizedExpression
+---@alias Expression Term|MemberExpression|CallExpression|BinaryExpression|RecordLiteralExpression|AssignmentExpression|ParenthesizedExpression
 
 ---@alias Comment { kindof: "Comment", content: string }
 ---@alias VariableDeclarator { kindof: "VariableDeclarator", identifier: Identifier, init?: Expression }
@@ -47,7 +46,7 @@
 ---@alias BlockStatement Statement|AssignmentExpression|CallExpression
 ---@alias StatementExpression Statement|Expression
 
----@alias JSONValue { [string]: JSONValue }|JSONValue[]|string|number|boolean
+---@alias JSONValue { [string]: JSONValue }|JSONValue[]|boolean|number|string
 
 ---@alias ExpressionGenerator fun(node: Expression): string?
 ---@alias StatementGenerator fun(node: StatementExpression): string?
