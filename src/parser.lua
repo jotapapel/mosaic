@@ -1,5 +1,5 @@
-local scan = require "frontend.scanner"
-local json = require "json"
+local scan = require "src.scanner"
+local json = require "lib.json"
 
 local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
 local parseExpression, parseStatement ---@type ExpressionParser, StatementParser
@@ -87,8 +87,10 @@ local function parseTerm ()
 	elseif typeof == "Boolean" then
 		return { kindof = "BooleanLiteral", value = value }
 	-- Undefined or Ellipsis
-	elseif typeof == "Undefined" or typeof == "Ellipsis" or typeof == "Self" or typeof == "Super" then
+	elseif typeof == "Undefined" then
 		return { kindof = typeof }
+	elseif typeof == "Ellipsis" or typeof == "Self" or typeof == "Super" then
+		return { kindof = typeof, value = value }
 	-- Parenthesized expressions
 	elseif typeof == "LeftParenthesis" then
 		local node = parseExpression() --[[@as Expression]]
@@ -208,7 +210,8 @@ end
 local function parseAssignmentExpression ()
 	local left = parseRecordExpression()
 	if suppose("Equal") then
-		return { kindof = "AssignmentExpression", left = left --[[@as Expression]], operator = "=", right = parseExpression() --[[@as Expression]] }
+		local right = (left.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression() --[[@as Expression]]
+		return { kindof = "AssignmentExpression", left = left --[[@as Expression]], operator = "=", right = right }
 	end
 	return left
 end
@@ -240,7 +243,7 @@ function parseStatement ()
 				local declarations = {} ---@type VariableDeclarator[]
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
 					local identifier = catch("<name> expected", parseRecordExpression, "Identifier", "RecordLiteralExpression") --[[@as Identifier]]
-					local init = suppose("Equal") and parseExpression()
+					local init = suppose("Equal") and ((identifier.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
 					declarations[#declarations + 1] = { kindof = "VariableDeclarator", identifier = identifier, init = init }
 					if not suppose("Comma") then
 						break
@@ -349,9 +352,7 @@ function parseStatement ()
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'for' at line %s)" or "", line), "End")
 				return { kindof = "ForLoop", condition = condition, body = body }
 			end
-			local expression = parseExpression() --[[@as Expression]]
-			suppose("Semicolon")
-			return expression
+			throw("unexpected symbol near '" .. value .. "'")
 		until true
 	end
 end
@@ -359,12 +360,13 @@ end
 ---@param source string The raw source.
 ---@return StatementExpression[] #The AST table.
 return function (source)
-	current, pop, peek = {}, scan(source)
+	current, pop, peek = { value = "", line = 0 }, scan(source)
 	current.typeof, current.value, current.line = peek()
-	local program = {} ---@type StatementExpression[]
-	while current.typeof do
-		local statementExpression = parseStatement()
-		program[#program + 1] = statementExpression
+	return function()
+		if current.typeof then
+			local statement = parseStatement()
+			suppose("Semicolon")
+			return statement
+		end
 	end
-	return program
 end

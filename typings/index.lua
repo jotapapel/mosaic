@@ -48,5 +48,5 @@
 
 ---@alias JSONValue { [string]: JSONValue }|JSONValue[]|boolean|number|string
 
----@alias ExpressionGenerator fun(node: Expression): string?
----@alias StatementGenerator fun(node: StatementExpression): string?
+---@alias ExpressionGenerator fun(node: Expression): string
+---@alias StatementGenerator fun(node: StatementExpression, level?: integer): string?

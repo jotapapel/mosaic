@@ -1,3 +1,0 @@
-function myFunction ()
-	self.myVariable = 99;
-end

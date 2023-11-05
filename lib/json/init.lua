@@ -13,7 +13,7 @@ end
 ---@param source string The raw source.
 ---@return NextLexeme
 ---@return CurrentLexeme
-local function scanner (source)
+local function scan (source)
 	source = source:gsub("\\(.)", function (char) return string.format("\\%03d", string.byte(char)) end)
 	local index, lineIndex, len = 1, 1, source:len()
 	local function scan ()
@@ -131,7 +131,7 @@ local function decodeLiteral ()
 	local typeof, value = consume()
 	-- Booleans
 	if typeof == "Boolean" then
-		return (value == "true") and true or false
+		return ({ ["true"] = true, ["false"] = false })[value]
 	-- Numbers
 	elseif typeof == "Number" then
 		return tonumber(value)
