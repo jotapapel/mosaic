@@ -352,7 +352,7 @@ function parseStatement ()
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'for' at line %s)" or "", line), "End")
 				return { kindof = "ForLoop", condition = condition, body = body }
 			end
-			throw("unexpected symbol near '" .. value .. "'")
+			return parseExpression()
 		until true
 	end
 end
