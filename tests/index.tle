@@ -1,0 +1,31 @@
+prototype SimpleMessage {}
+	-- comment 1
+	-- comment 2
+	var a = "HELLO WORLD!"
+	-- this is a constructor
+	-- and this is all going to the same place
+	function constructor (message)
+		self.message = message
+	end
+	-- display a simple message
+	function showMessage ()
+		print("> " + ("Message from MessageDisplay: " + self.message) + "!")
+	end
+end
+
+prototype ExtendedMessage { SimpleMessage }
+	-- simple addendum
+	-- aye
+	var addendum = "Foo"
+	function showMessage ()
+		-- override the showMessage method from the parent prototype
+		super:showMessage()
+		print("Additional message from ExtendedMessage:" + self.addendum)
+	end
+end
+
+var simpleInstance = SimpleMessage{"Hello World!"}
+simpleInstance:showMessage()
+
+var extendedInstance = ExtendedMessage{"Hello", "Welcome to Tagüa!"}
+extendedInstance:showMessage()

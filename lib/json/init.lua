@@ -214,24 +214,23 @@ local function serialize (value, level, visited)
 	elseif typeof == "number" or typeof == "boolean" then
 		return tostring(value)
 	elseif typeof == "table" then
-		if visited[value] then
-			return "\"(visited)\""
-		end
-		visited[value] = true
-		local parts, delimiter, indent = {}, "{\n%s}", string.rep("\t", level)
-		for i, v in ipairs(value) do
-			delimiter, parts[i] = "[\n%s]", serialize(v, level + 1, visited)
-		end
-		for k, v in pairs(value) do
-			if type(k) == "number" and k >= 1 and k <= #value and math.floor(k) == k then
-				break
+		if not visited[value] then
+			local parts, delimiter, indent = {}, "{\n%s}", string.rep("\t", level)
+			for i, v in ipairs(value) do
+				delimiter, parts[i] = "[\n%s]", serialize(v, level + 1, visited)
 			end
-			parts[#parts + 1] = "\"" .. k .. "\": " .. serialize(v, level + 1, visited)
+			for k, v in pairs(value) do
+				if type(k) == "number" and k >= 1 and k <= #value and math.floor(k) == k then
+					break
+				end
+				parts[#parts + 1] = "\"" .. k .. "\": " .. serialize(v, level + 1, visited)
+			end
+			if #parts == 0 then
+				return "{}"
+			end
+			visited[value] = delimiter:sub(1, 2) .. indent .. table.concat(parts, ",\n" .. indent) .. string.format(delimiter:sub(-4), string.rep("\t", level - 1))
 		end
-		if #parts == 0 then
-			return "{}"
-		end
-		return delimiter:sub(1, 2) .. indent .. table.concat(parts, ",\n" .. indent) .. string.format(delimiter:sub(-4), string.rep("\t", level - 1))
+		return visited[value]
 	end
 	return "nil"
 end

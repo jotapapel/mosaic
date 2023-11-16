@@ -14,19 +14,21 @@
 
 ---@alias UnaryExpression { kindof: "UnaryExpression", operator: "-"|"$"|"#"|"!", argument: Expression }
 ---@alias Identifier { kindof: "Identifier", value: string }
----@alias StringLiteral { kindof: "StringLiteral", value: string }
+---@alias StringLiteral { kindof: "StringLiteral", value: string, iskey?: boolean }
 ---@alias NumberLiteral { kindof: "NumberLiteral", value: number }
 ---@alias BooleanLiteral { kindof: "BooleanLiteral", value: "true" | "false" }
 ---@alias Undefined { kindof: "Undefined" }
 ---@alias Term UnaryExpression|Identifier|StringLiteral|NumberLiteral|BooleanLiteral|Undefined
 
----@alias MemberExpression { kindof: "MemberExpression", record: Term, property: Expression, computed: boolean }
+---@alias MemberExpression { kindof: "MemberExpression", record: Expression, property: Expression, computed: boolean, instance?: boolean }
 ---@alias CallExpression { kindof: "CallExpression", caller: Expression, arguments: Expression[] }
+---@alias NewExpression { kindof: "NewExpression", caller: Expression, arguments: Expression[] }
 ---@alias BinaryOperator "and"|"or"|"=="|">"|"<"|">="|"<="|"<>"|"+"|"-"|"*"|"/"|"^"|"%"
 ---@alias BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: BinaryOperator, right: Expression }
 ---@alias RecordElement { kindof: "RecordElement", key?: (UnaryExpression|Identifier|NumberLiteral)?, value: Expression }
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentExpression { kindof: "AssignmentExpression", left: Term, operator: "=", right: Expression }
+---@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[] }
 ---@alias ParenthesizedExpression { kindof: "ParenthesizedExpression", node: Expression }
 ---@alias Expression Term|MemberExpression|CallExpression|BinaryExpression|RecordLiteralExpression|AssignmentExpression|ParenthesizedExpression
 

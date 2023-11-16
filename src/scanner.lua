@@ -1,11 +1,12 @@
 ---@type { [string]: true }
 local keywords <const> = {
+	["and"] = true, ["or"] = true,
 	["var"] = true, ["function"] = true, ["return"] = true,
-	["prototype"] = true, ["self"] = true, ["super"] = true,
+	["prototype"] = true,
 	["if"] = true, ["then"] = true, ["elseif"] = true, ["else"] = true,
 	["while"] = true, ["do"] = true, ["break"] = true,
 	["for"] = true, ["to"] = true, ["step"] = true, ["in"] = true,
-	["end"] = true, ["and"] = true, ["or"] = true
+	["end"] = true
 }
 
 ---@param source string The raw source.
