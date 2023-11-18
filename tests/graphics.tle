@@ -13,7 +13,7 @@ var graphics = [
 
 function graphics.clear (color)
 	color = color or 0
-	memset(&0000, (color * (2 ^ 4)) + color, 16320)
+	memset(&0, (color * (2 ^ 4)) + color, 16320)
 end
 
 function graphics.border (color)
@@ -32,9 +32,9 @@ end
 
 function graphics.point (x, y, color)
 	if color then
-		poke4(&0000 + (y * &F0) + x, color)
+		poke4(&0 + (y * &F0) + x, color)
 	end
-	return peek4(&0000 + (y * &F0) + x)
+	return peek4(&0 + (y * &F0) + x)
 end
 
 function graphics.line (x0, y0, x1, y1, color)
@@ -112,7 +112,7 @@ function graphics.circle(style, x, y, radius, color, border, adjust)
 	error("Wrong drawing style", 2)
 end
 
-@global function TIC ()
+function TIC ()
 	graphics.clear(graphics.RED)
 	graphics.circle(graphics.BOX, 32, 32, 16, graphics.BRIGHT_RED)
 end

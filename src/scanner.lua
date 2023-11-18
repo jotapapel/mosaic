@@ -1,6 +1,6 @@
 ---@type { [string]: true }
 local keywords <const> = {
-	["and"] = true, ["or"] = true,
+	["and"] = true, ["or"] = true, ["is"] = true,
 	["var"] = true, ["function"] = true, ["return"] = true,
 	["prototype"] = true,
 	["if"] = true, ["then"] = true, ["elseif"] = true, ["else"] = true,
@@ -36,6 +36,8 @@ return function (source)
 							index = index + 1
 						end
 						fromIndex = lastIndex + 2
+					elseif source:sub(index, index) == "=" then
+						typeof, index = "MinusEqual", index + 1
 					end
 				-- identifiers
 				elseif char:match("[_%a]") then
@@ -86,14 +88,29 @@ return function (source)
 					index = index + 1
 					if char == "+" then
 						typeof = "Plus"
+						if source:sub(index, index) == "=" then
+							typeof, index = "PlusEqual", index + 1
+						end
 					elseif char == "*" then
 						typeof = "Asterisk"
+						if source:sub(index, index) == "=" then
+							typeof, index = "AsteriskEqual", index + 1
+						end
 					elseif char == "/" then
 						typeof = "Slash"
+						if source:sub(index, index) == "=" then
+							typeof, index = "SlashEqual", index + 1
+						end
 					elseif char == "^" then
 						typeof = "Circumflex"
+						if source:sub(index, index) == "=" then
+							typeof, index = "CircumflexEqual", index + 1
+						end
 					elseif char == "%" then
 						typeof = "Percent"
+						if source:sub(index, index) == "=" then
+							typeof, index = "PercentEqual", index + 1
+						end
 					elseif char == ">" then
 						typeof = "Greater"
 					elseif char == "<" then
@@ -115,7 +132,7 @@ return function (source)
 					elseif char == "." then
 						typeof = "Dot"
 						if source:sub(index, index + 1) == ".." then
-							index, typeof = index + 2, "Ellipsis"
+							typeof, index = "Ellipsis", index + 2
 						end
 					elseif char == "," then
 						typeof = "Comma"
@@ -155,5 +172,5 @@ return function (source)
 			index = startIndex
 		end
 		return typeof, value or "<eof>", line or lineIndex
-	end
+	end, keywords
 end

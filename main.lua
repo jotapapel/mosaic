@@ -2,8 +2,10 @@ local json = require "lib.json"
 local parse = require "src.parser"
 local generate = require "languages.Lua.generator"
 
-local file <close> = io.open("tests/index.tle") or error("Source file not found.")
+local name, target = ...
+local file <close> = io.open(name) or error("Source file not found.")
 local source = file:read("*a")
 
 local output = generate(source)
-print(output)
+local outfile <const>, err = io.open(target, "w+")
+outfile:write(output)

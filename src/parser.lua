@@ -1,9 +1,9 @@
 local scan = require "src.scanner"
 local json = require "lib.json"
 
-local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
+local current, pop, peek, keywords ---@type Lexeme, NextLexeme, CurrentLexeme, { [string] = true }
 local parseExpression, parseStatement ---@type ExpressionParser, StatementParser
-local escapedCharacters <const> = { [116] = "\t", [92] = "\\", [34] = "\"", [98] = "\b", [102] = "\f", [110] = "\n", [114] = "\r" }
+local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
 
 --- Throw a local error.
 ---@param message string The error message.
@@ -209,7 +209,7 @@ end
 ---@return BinaryExpression
 local function parseLogicalExpression ()
 	local left = parseComparisonExpression()
-	while current.typeof == "And" or current.typeof == "Or" do
+	while current.typeof == "And" or current.typeof == "Or" or current.typeof == "Is" do
 		local operator = current.value
 		consume()
 		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseComparisonExpression() --[[@as Expression]] }
@@ -257,9 +257,10 @@ function parseStatement ()
 				end
 				return { kindof = "Comment", content = content }
 			elseif typeof == "At" then
-				decorations = {} ---@type Identifier[]
+				decorations = {} ---@type { [string]: true }
 				while suppose "At" do
-					decorations[#decorations + 1] = expect("<name> expected", "Identifier") --[[@as Identifier]]
+					local name = expect("<name> expected", "Identifier") --[[@as string]]
+					decorations[name] = true
 				end
 				break
 			-- VariableDeclaration
@@ -274,7 +275,7 @@ function parseStatement ()
 						break
 					end
 				end
-				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations }
+				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations or {} }
 			-- FunctionDeclaration
 			elseif typeof == "Function" then
 				consume()
@@ -292,7 +293,7 @@ function parseStatement ()
 					body[#body + 1] = parseStatement()
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'function' at line %s)" or "", line), "End")
-				return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body, decorations = decorations }
+				return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body, decorations = decorations or {} }
 			-- ReturnStatement
 			elseif typeof == "Return" then
 				consume()
@@ -326,7 +327,7 @@ function parseStatement ()
 					body[#body + 1] = statement
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'prototype' at line %s)" or "", line), "End")
-				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }
+				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations or {} }
 			-- IfStatement
 			elseif typeof == "If" then
 				local node = {}
@@ -404,8 +405,7 @@ function parseStatement ()
 					elseif left.kindof == "RecordLiteralExpression" then
 						operator, right = expect("'=' expected", "Equal"), catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis")
 					elseif left.kindof == "MemberExpression" or left.kindof == "Identifier" then
-						local modifyer = suppose("Plus", "Minus", "Asterisk", "Slash", "Circumflex", "Percent") or ""
-						operator, right = modifyer .. expect("'=' expected", "Equal"), parseExpression()
+						operator, right = expect("'=' expected", "Equal", "MinusEqual", "PlusEqual", "AsteriskEqual", "SlashEqual", "CircumflexEqual", "PercentEqual"), parseExpression()
 					else
 						throw("syntax error near '" .. last .. "'")
 					end
@@ -425,7 +425,7 @@ end
 ---@param source string The raw source.
 ---@return StatementExpression[] #The AST table.
 return function (source)
-	current, pop, peek = { value = "", line = 0 }, scan(source)
+	current, pop, peek, keywords = { value = "", line = 0 }, scan(source)
 	current.typeof, current.value, current.line = peek()
 	return function()
 		if current.typeof then
