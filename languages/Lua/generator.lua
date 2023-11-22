@@ -1,5 +1,4 @@
 local json = require "lib.json"
-local parse = require "src.parser"
 local generateExpression, generateStatement ---@type ExpressionGenerator, StatementGenerator
 
 --- Generate a code structure with the correct indentation.
@@ -232,11 +231,10 @@ function generateStatement(node, level)
 end
 
 ---@param source string
-return function(source)
+return function(ast, level)
 	local output = {}
-	for node in parse(source) do
-		--print(json.encode(node, true))
-		output[#output + 1] = generateStatement(node)
+	for index, node in ipairs(ast.body) do
+		output[index] = string.rep("\t", level) .. (generateStatement(node, level) or "")
 	end
 	return table.concat(output, "\n")
 end

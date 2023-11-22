@@ -245,7 +245,7 @@ end
 
 ---@return StatementExpression?
 function parseStatement ()
-	local decorations ---@type string[]?
+	local decorations, export ---@type string[]?, boolean?
 	while true do
 		repeat
 			local typeof, value, line = peek()
@@ -263,10 +263,20 @@ function parseStatement ()
 					decorations[name] = true
 				end
 				break
+			elseif typeof == "Import" then
+				consume()
+				local names = suppose("Asterisk") or catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier")
+				expect("'from' expected", "From")
+				local filename = catch("<string> expected", parseTerm, "StringLiteral")
+				return { kindof = "ImportDeclaration", names = names, filename = filename }
+			elseif typeof == "Export" then
+				consume()
+				export = true
+				break
 			-- VariableDeclaration
 			elseif typeof == "Var" then
 				consume()
-				local declarations = {} ---@type VariableDeclarator[]
+				local declarations, identifiers = {}, {} ---@type VariableDeclarator[], Expression[]
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
 					local identifier = catch("<name> expected", parseExpression, "Identifier", "RecordLiteralExpression") --[[@as Identifier]]
 					local init = suppose("Equal") and ((identifier.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
@@ -275,7 +285,7 @@ function parseStatement ()
 						break
 					end
 				end
-				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations or {} }
+				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations, export = export }
 			-- FunctionDeclaration
 			elseif typeof == "Function" then
 				consume()
@@ -293,7 +303,7 @@ function parseStatement ()
 					body[#body + 1] = parseStatement()
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'function' at line %s)" or "", line), "End")
-				return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body, decorations = decorations or {} }
+				return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body, decorations = decorations }
 			-- ReturnStatement
 			elseif typeof == "Return" then
 				consume()
@@ -327,7 +337,7 @@ function parseStatement ()
 					body[#body + 1] = statement
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'prototype' at line %s)" or "", line), "End")
-				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations or {} }
+				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }
 			-- IfStatement
 			elseif typeof == "If" then
 				local node = {}
@@ -424,12 +434,12 @@ end
 
 ---@param source string The raw source.
 ---@return StatementExpression[] #The AST table.
-return function (source)
+return function (source, options)
 	current, pop, peek, keywords = { value = "", line = 0 }, scan(source)
 	current.typeof, current.value, current.line = peek()
-	return function()
-		if current.typeof then
-			return parseStatement()
-		end
+	local ast = { kindof = "Program", body = {} }
+	while current.typeof do
+		ast.body[#ast.body + 1] = parseStatement()
 	end
+	return ast
 end

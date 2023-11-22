@@ -6,7 +6,8 @@ local keywords <const> = {
 	["if"] = true, ["then"] = true, ["elseif"] = true, ["else"] = true,
 	["while"] = true, ["do"] = true, ["break"] = true,
 	["for"] = true, ["to"] = true, ["step"] = true, ["in"] = true,
-	["end"] = true
+	["end"] = true,
+	["import"] = true, ["from"] = true, ["export"] = true
 }
 
 ---@param source string The raw source.
