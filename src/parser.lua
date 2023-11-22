@@ -1,7 +1,7 @@
 local scan = require "src.scanner"
 local json = require "lib.json"
 
-local current, pop, peek, keywords ---@type Lexeme, NextLexeme, CurrentLexeme, { [string] = true }
+local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
 local parseExpression, parseStatement ---@type ExpressionParser, StatementParser
 local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
 
@@ -15,6 +15,7 @@ end
 --- Move on to the next lexeme, store the current one in the 'current' table.
 ---@return string typeof The lexeme type.
 ---@return string value The lexeme value.
+---@return number line The line number.
 local function consume ()
 	local typeof, value, line = pop()
 	current.typeof, current.value, current.line = peek()
@@ -22,7 +23,7 @@ local function consume ()
 end
 
 --- Expect a specific lexeme(s) from the scanner, throw an error when not found.
----@param message string The error message.
+---@param message? string The error message.
 ---@param ... string The expected types.
 local function expect (message, ...)
 	local lookup = {}
@@ -73,10 +74,7 @@ local function parseTerm ()
 		return { kindof = "Identifier", value = value }
 	-- Strings
 	elseif typeof == "String" then
-		value = value:gsub("\\(%d%d%d)", function (d)
-			local byte = tonumber(d)
-			return escapedCharacters[byte]
-		end)
+		value = value:gsub("\\(%d%d%d)", function (d) return escapedCharacters[tonumber(d)] end)
 		return { kindof = "StringLiteral", value = value }
 	-- Numbers
 	elseif typeof == "Number" then
@@ -164,7 +162,8 @@ local function parseNewCallMemberExpression()
 			local caller = { kindof = "MemberExpression", record = member --[[@as Expression]], property = property, computed = false, instance = true }
 			return parseCallExpression(caller, member)
 		elseif (member.kindof == "StringLiteral") then
-			member.iskey = true
+			---@cast member +StringLiteral
+			member.key = true
 			return member
 		end
 	end
@@ -223,8 +222,8 @@ local function parseRecordExpression ()
 		local elements = {} ---@type RecordElement[]
 		while current.typeof ~= "RightBracket" do
 			local key ---@type (Identifier|StringLiteral)?
-			local value = parseExpression()
-			if value.kindof == "StringLiteral" and value.iskey then
+			local value = parseExpression() --[[@as Expression]]
+			if value.kindof == "StringLiteral" and value.key then
 				if not (current.typeof == "Comma" or current.typeof == "RightBracket") then
 					key = value
 				end
@@ -265,7 +264,7 @@ function parseStatement ()
 				break
 			elseif typeof == "Import" then
 				consume()
-				local names = suppose("Asterisk") or catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier")
+				local names = suppose("Asterisk") or catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier") --[[@as RecordLiteralExpression|Identifier]]
 				expect("'from' expected", "From")
 				local filename = catch("<string> expected", parseTerm, "StringLiteral")
 				return { kindof = "ImportDeclaration", names = names, filename = filename }
@@ -380,7 +379,7 @@ function parseStatement ()
 				local last, initial = current.value, parseExpression() --[[@as Expression]]
 				if initial.kindof == "Identifier" then
 					expect("'=' expected", "Equal")
-					initial = { kindof = "VariableAssignment", assignments = { { kindof = "AssignmentExpression", left = initial, operator = "=", right = parseExpression() } } }
+					initial = { kindof = "AssignmentExpression", assignments = { { kindof = "VariableAssignment", left = initial, operator = "=", right = parseExpression() } } }
 					expect("'to' expected", "To")
 					condition = { init = initial, goal = parseExpression(), step = suppose("Step") and parseExpression() } --[[@as NumericLoopCondition]]
 				elseif initial.kindof == "RecordLiteralExpression" then
@@ -419,12 +418,12 @@ function parseStatement ()
 					else
 						throw("syntax error near '" .. last .. "'")
 					end
-					assignments[#assignments + 1] = { kindof = "AssignmentExpression", left = left, operator = operator, right = right }
+					assignments[#assignments + 1] = { kindof = "VariableAssignment", left = left, operator = operator, right = right }
 					if not suppose("Comma") then
 						break
 					end
 				end
-				return { kindof = "VariableAssignment", assignments = assignments }
+				return { kindof = "AssignmentExpression", assignments = assignments }
 			end
 			-- Unknown
 			throw("unexpected symbol near '" .. value .. "'")
@@ -433,9 +432,9 @@ function parseStatement ()
 end
 
 ---@param source string The raw source.
----@return StatementExpression[] #The AST table.
+---@return { kindof: string, body: StatementExpression[] } #The AST table.
 return function (source, options)
-	current, pop, peek, keywords = { value = "", line = 0 }, scan(source)
+	current, pop, peek = { value = "", line = 0 }, scan(source)
 	current.typeof, current.value, current.line = peek()
 	local ast = { kindof = "Program", body = {} }
 	while current.typeof do

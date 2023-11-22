@@ -1,7 +1,8 @@
 ---@type { [string]: true }
 local keywords <const> = {
 	["and"] = true, ["or"] = true, ["is"] = true,
-	["var"] = true, ["function"] = true, ["return"] = true,
+	["var"] = true,
+	["function"] = true, ["return"] = true,
 	["prototype"] = true,
 	["if"] = true, ["then"] = true, ["elseif"] = true, ["else"] = true,
 	["while"] = true, ["do"] = true, ["break"] = true,
@@ -87,29 +88,30 @@ return function (source)
 				-- characters
 				elseif char:match("%p") then
 					index = index + 1
+					local adjacent = source:sub(index, index)
 					if char == "+" then
 						typeof = "Plus"
-						if source:sub(index, index) == "=" then
+						if adjacent == "=" then
 							typeof, index = "PlusEqual", index + 1
 						end
 					elseif char == "*" then
 						typeof = "Asterisk"
-						if source:sub(index, index) == "=" then
+						if adjacent == "=" then
 							typeof, index = "AsteriskEqual", index + 1
 						end
 					elseif char == "/" then
 						typeof = "Slash"
-						if source:sub(index, index) == "=" then
+						if adjacent == "=" then
 							typeof, index = "SlashEqual", index + 1
 						end
 					elseif char == "^" then
 						typeof = "Circumflex"
-						if source:sub(index, index) == "=" then
+						if adjacent == "=" then
 							typeof, index = "CircumflexEqual", index + 1
 						end
 					elseif char == "%" then
 						typeof = "Percent"
-						if source:sub(index, index) == "=" then
+						if adjacent == "=" then
 							typeof, index = "PercentEqual", index + 1
 						end
 					elseif char == ">" then
@@ -151,9 +153,9 @@ return function (source)
 						typeof = "At"
 					end
 					if typeof == "Less" or typeof == "Greater" or typeof == "Equal" then
-						if typeof == "Less" and source:sub(index, index) == ">" then
+						if typeof == "Less" and adjacent == ">" then
 							typeof, index = "NotEqual", index + 1
-						elseif source:sub(index, index) == "=" then
+						elseif adjacent == "=" then
 							typeof, index = "IsEqual", index + 1
 						end
 					end
@@ -173,5 +175,5 @@ return function (source)
 			index = startIndex
 		end
 		return typeof, value or "<eof>", line or lineIndex
-	end, keywords
+	end
 end

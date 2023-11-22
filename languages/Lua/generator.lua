@@ -66,18 +66,20 @@ function generateExpression(node)
 		local parts = {} ---@type string[]
 		for index, element in ipairs(node.elements) do
 			local pattern = "[%s] = %s"
-			if element.key and element.key.value:match("^[_%a][_%w]*$") then
-				element.key.kindof, pattern = "Identifier", "%s = %s"
-			elseif element.key and tonumber(element.key.value) then
-				element.key.kindof, element.key.value = "NumberLiteral", tonumber(element.key.value)
+			if element.key then
+				if string.match(element.key.value, "^[_%a][_%w]*$") then
+					element.key.kindof, pattern = "Identifier", "%s = %s"
+				elseif tonumber(element.key.value) then
+					element.key.kindof, element.key.value = "NumberLiteral", tonumber(element.key.value)	
+				end
 			end
 			local key, value = element.key and generateExpression(element.key), generateExpression(element.value) --[[@as string]]
 			parts[index] = key and string.format(pattern, key, value) or string.format("%s", value)
 		end
 		return string.format("{ %s }", table.concat(parts, ", "))
 	elseif kindof == "ParenthesizedExpression" then
-		local node = generateExpression(node.node)
-		return string.format("(%s)", node)
+		local inner = generateExpression(node.node)
+		return string.format("(%s)", inner)
 	end
 	return node.value
 end
@@ -213,7 +215,7 @@ function generateStatement(node, level)
 			body[index] = generateStatement(statement, level + 1)
 		end
 		return generate(string.format("for %s do", head), body, "end", level)
-	elseif kindof == "VariableAssignment" then
+	elseif kindof == "AssignmentExpression" then
 		local lefts, rights = {}, {}
 		for index, assignment in ipairs(node.assignments) do
 			local left, right = generateExpression(assignment.left), generateExpression(assignment.right)
@@ -230,7 +232,8 @@ function generateStatement(node, level)
 	return generateExpression(node)
 end
 
----@param source string
+---@param ast AST
+---@param level integer
 return function(ast, level)
 	local output = {}
 	for index, node in ipairs(ast.body) do
