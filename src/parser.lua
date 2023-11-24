@@ -173,11 +173,10 @@ end
 ---@return BinaryExpression
 local function parseMultiplicativeExpression ()
 	local left = parseNewCallMemberExpression()
-	while current.typeof == "Asterisk" or current.typeof == "Slash" 
-		  or current.typeof == "Circumflex" or current.typeof == "Percent" do
+	while current.typeof == "Asterisk" or current.typeof == "Slash" or current.typeof == "Circumflex" or current.typeof == "Percent" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left, operator = operator, right = parseNewCallMemberExpression() } --[[@as BinaryExpression]]
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseNewCallMemberExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
@@ -188,7 +187,7 @@ local function parseAdditiveExpression ()
 	while current.typeof == "Plus" or current.typeof == "Minus" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseMultiplicativeExpression() --[[@as Expression]] }
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseMultiplicativeExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
@@ -200,7 +199,7 @@ local function parseComparisonExpression ()
 		  or current.typeof == "GreaterEqual" or current.typeof == "LessEqual" or current.typeof == "NotEqual" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseAdditiveExpression() --[[@as Expression]] }
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseAdditiveExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
@@ -211,7 +210,7 @@ local function parseLogicalExpression ()
 	while current.typeof == "And" or current.typeof == "Or" or current.typeof == "Is" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseComparisonExpression() --[[@as Expression]] }
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseComparisonExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
@@ -248,38 +247,41 @@ function parseStatement ()
 	while true do
 		repeat
 			local typeof, value, line = peek()
-			-- Comment
-			if typeof == "Comment" then
-				local content = {} ---@type string[]
-				while current.typeof == "Comment" do
-					content[#content + 1] = expect(nil, "Comment")
-				end
-				return { kindof = "Comment", content = content }
-			elseif typeof == "At" then
+			-- Decorators
+			if typeof == "At" then
 				decorations = {} ---@type { [string]: true }
 				while suppose "At" do
 					local name = expect("<name> expected", "Identifier") --[[@as string]]
 					decorations[name] = true
 				end
 				break
+			-- Export
+			elseif typeof == "Export" then
+				consume()
+				export = true
+				break
+			-- Comment
+			elseif typeof == "Comment" then
+				local content = {} ---@type string[]
+				while current.typeof == "Comment" do
+					content[#content + 1] = expect(nil, "Comment")
+				end
+				return { kindof = "Comment", content = content }
+			-- ImportDeclaration
 			elseif typeof == "Import" then
 				consume()
 				local names = suppose("Asterisk") or catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier") --[[@as RecordLiteralExpression|Identifier]]
 				expect("'from' expected", "From")
 				local filename = catch("<string> expected", parseTerm, "StringLiteral")
 				return { kindof = "ImportDeclaration", names = names, filename = filename }
-			elseif typeof == "Export" then
-				consume()
-				export = true
-				break
 			-- VariableDeclaration
 			elseif typeof == "Var" then
 				consume()
-				local declarations, identifiers = {}, {} ---@type VariableDeclarator[], Expression[]
+				local declarations, identifiers = {}, {} ---@type AssignmentExpression[], Expression[]
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
-					local identifier = catch("<name> expected", parseExpression, "Identifier", "RecordLiteralExpression") --[[@as Identifier]]
-					local init = suppose("Equal") and ((identifier.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
-					declarations[#declarations + 1] = { kindof = "VariableDeclarator", identifier = identifier, init = init }
+					local left = catch("<name> expected", parseExpression, "Identifier", "RecordLiteralExpression") --[[@as Identifier]]
+					local right = suppose("Equal") and ((left.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
+					declarations[#declarations + 1] = { kindof = "AssignmentExpression", left = left, operator = "=", right = right }
 					if not suppose("Comma") then
 						break
 					end
@@ -379,7 +381,7 @@ function parseStatement ()
 				local last, initial = current.value, parseExpression() --[[@as Expression]]
 				if initial.kindof == "Identifier" then
 					expect("'=' expected", "Equal")
-					initial = { kindof = "AssignmentExpression", assignments = { { kindof = "VariableAssignment", left = initial, operator = "=", right = parseExpression() } } }
+					initial = { kindof = "AssignmentExpression", left = initial, operator = "=", right = parseExpression() } --[[@as AssignmentExpression]]
 					expect("'to' expected", "To")
 					condition = { init = initial, goal = parseExpression(), step = suppose("Step") and parseExpression() } --[[@as NumericLoopCondition]]
 				elseif initial.kindof == "RecordLiteralExpression" then
@@ -403,7 +405,7 @@ function parseStatement ()
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'for' at line %s)" or "", line), "End")
 				return { kindof = "ForLoop", condition = condition, body = body }
-			-- CallExpression or VariableAssignment
+			-- CallExpression, NewExpression, VariableAssignment
 			elseif typeof == "Identifier" or typeof == "LeftBracket" then
 				local assignments = {}
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
@@ -418,12 +420,12 @@ function parseStatement ()
 					else
 						throw("syntax error near '" .. last .. "'")
 					end
-					assignments[#assignments + 1] = { kindof = "VariableAssignment", left = left, operator = operator, right = right }
+					assignments[#assignments + 1] = { kindof = "AssignmentExpression", left = left, operator = operator, right = right } --[[@as AssignmentExpression]]
 					if not suppose("Comma") then
 						break
 					end
 				end
-				return { kindof = "AssignmentExpression", assignments = assignments }
+				return { kindof = "VariableDeclaration", assignments = assignments }
 			end
 			-- Unknown
 			throw("unexpected symbol near '" .. value .. "'")

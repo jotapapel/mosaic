@@ -116,10 +116,21 @@ return function (source)
 						end
 					elseif char == ">" then
 						typeof = "Greater"
+						if adjacent == "=" then
+							typeof, index = "GreaterEqual", index + 1
+						end
 					elseif char == "<" then
 						typeof = "Less"
+						if adjacent == ">" then
+							typeof, index = "NotEqual", index + 1
+						elseif adjacent == "=" then
+							typeof, index = "LessEqual", index + 1
+						end
 					elseif char == "=" then
 						typeof = "Equal"
+						if adjacent == "=" then
+							typeof, index = "IsEqual", index + 1
+						end
 					elseif char == "(" then
 						typeof = "LeftParenthesis"
 					elseif char == "{" then
@@ -151,13 +162,6 @@ return function (source)
 						typeof = "Bang"
 					elseif char == "@" then
 						typeof = "At"
-					end
-					if typeof == "Less" or typeof == "Greater" or typeof == "Equal" then
-						if typeof == "Less" and adjacent == ">" then
-							typeof, index = "NotEqual", index + 1
-						elseif adjacent == "=" then
-							typeof, index = "IsEqual", index + 1
-						end
 					end
 				end
 				-- unknown characters
