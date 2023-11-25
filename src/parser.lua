@@ -2,7 +2,7 @@ local scan = require "src.scanner"
 local json = require "lib.json"
 
 local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
-local parseExpression, parseStatement ---@type ExpressionParser, StatementParser
+local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression>
 local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
 
 --- Throw a local error.
@@ -277,7 +277,7 @@ function parseStatement ()
 			-- VariableDeclaration
 			elseif typeof == "Var" then
 				consume()
-				local declarations, identifiers = {}, {} ---@type AssignmentExpression[], Expression[]
+				local declarations = {} ---@type AssignmentExpression[]
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
 					local left = catch("<name> expected", parseExpression, "Identifier", "RecordLiteralExpression") --[[@as Identifier]]
 					local right = suppose("Equal") and ((left.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
@@ -316,13 +316,13 @@ function parseStatement ()
 			-- PrototypeDeclaration
 			elseif typeof == "Prototype" then
 				consume()
-				local body, constructor = {}, false ---@type BlockStatement[], boolean
-				local name = catch("<name> expected", parseMemberExpression, "Identifier", "MemberExpression") --[[@as Identifier|MemberExpression]]
+				local body, constructor = {}, false ---@type (Comment|VariableDeclaration|FunctionDeclaration)[], boolean
+				local name = catch("<name> expected", parseMemberExpression, "Identifier", "MemberExpression") --[[@as Expression]]
 				expect("Missing '{' after <name>", "LeftBrace")
 				local parent = (current.typeof ~= "RightBrace") and parseExpression() or nil ---@type Expression?
 				expect("Missing '}'", "RightBrace")
 				while current.typeof ~= "End" do
-					local last, statement = current.line, catch("syntax error", parseStatement, "VariableDeclaration", "FunctionDeclaration", "Comment") --[[@as StatementExpression]]
+					local last, statement = current.line, catch("syntax error", parseStatement, "Comment", "VariableDeclaration", "FunctionDeclaration") --[[@as Comment|VariableDeclaration|FunctionDeclaration]]
 					if statement.kindof == "FunctionDeclaration" and statement.name.value == "constructor" then
 						if parent then
 							local firstStatement = statement.body[1]
@@ -364,7 +364,7 @@ function parseStatement ()
 				consume()
 				local condition = parseExpression() --[[@as Expression]]
 				expect("'do' expected", "Do")
-				local body = {} ---@type Statement[]
+				local body = {} ---@type BlockStatement[]
 				while current.typeof ~= "End" do
 					body[#body + 1] = parseStatement()
 				end
@@ -407,11 +407,14 @@ function parseStatement ()
 				return { kindof = "ForLoop", condition = condition, body = body }
 			-- CallExpression, NewExpression, VariableAssignment
 			elseif typeof == "Identifier" or typeof == "LeftBracket" then
-				local assignments = {}
+				local assignments = {} ---@type AssignmentExpression[]
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
-					local left, last = parseExpression() --[[@as Expression]], current.typeof
+					local last, left = current.value, parseExpression() --[[@as Expression]]
 					local operator, right ---@type string, Expression
 					if left.kindof == "CallExpression" or left.kindof == "NewExpression" then
+						if #assignments > 0 then
+							throw("<assignment> expected near '" .. last .. "'")
+						end
 						return left
 					elseif left.kindof == "RecordLiteralExpression" then
 						operator, right = expect("'=' expected", "Equal"), catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis")
@@ -425,7 +428,7 @@ function parseStatement ()
 						break
 					end
 				end
-				return { kindof = "VariableDeclaration", assignments = assignments }
+				return { kindof = "VariableAssignment", assignments = assignments }
 			end
 			-- Unknown
 			throw("unexpected symbol near '" .. value .. "'")

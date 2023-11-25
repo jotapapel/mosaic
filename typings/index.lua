@@ -9,14 +9,11 @@
 ---@alias NextLexeme fun(): string?, string, integer, integer
 ---@alias CurrentLexeme fun(): string, string, integer
 
----@alias ExpressionParser fun(): Expression?
----@alias StatementParser fun(): StatementExpression?
-
 ---@alias UnaryExpression { kindof: "UnaryExpression", operator: "-"|"$"|"#"|"!", argument: Expression }
 ---@alias Identifier { kindof: "Identifier", value: string }
 ---@alias StringLiteral { kindof: "StringLiteral", value: string, key?: boolean }
 ---@alias NumberLiteral { kindof: "NumberLiteral", value: number }
----@alias BooleanLiteral { kindof: "BooleanLiteral", value: "true" | "false" }
+---@alias BooleanLiteral { kindof: "BooleanLiteral", value: "true"|"false" }
 ---@alias Ellipsis { kindof: "Ellipsis", value: string }
 ---@alias Undefined { kindof: "Undefined" }
 ---@alias Term UnaryExpression|Identifier|StringLiteral|NumberLiteral|BooleanLiteral|Undefined|Ellipsis
@@ -29,7 +26,7 @@
 ---@alias RecordElement { kindof: "RecordElement", key?: (StringLiteral|Identifier|NumberLiteral)?, value: Expression }
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentOperator "="|"+="|"-="|"*="|"/="|"^="|"%="
----@alias AssignmentExpression { kindof: "AssignmentExpression", left?: Expression, operator?: AssignmentOperator, right: Expression }
+---@alias AssignmentExpression { kindof: "AssignmentExpression", left?: MemberExpression|Identifier, operator?: AssignmentOperator, right: Expression }
 ---@alias ParenthesizedExpression { kindof: "ParenthesizedExpression", node: Expression }
 ---@alias Expression Term|MemberExpression|CallExpression|NewExpression|BinaryExpression|RecordLiteralExpression|ParenthesizedExpression
 
@@ -39,20 +36,19 @@
 ---@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[] }
 ---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, parameters: Identifier[], body: BlockStatement[], decorations?: string[] }
 ---@alias ReturnStatement { kindof: "ReturnStatement", arguments: Expression[] }
----@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Expression, parent: Expression, body: BlockStatement[], decorations?: string[] }
+---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Expression, parent: Expression, body: (Comment|VariableDeclaration|FunctionDeclaration)[], decorations?: string[] }
 ---@alias IfStatement { kindof: "IfStatement", test: Expression, consequent: BlockStatement[], alternate?: IfStatement|BlockStatement[] }
 ---@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: BlockStatement[] }
----@alias BreakStatement { kindof: "BreakStatement" }
 ---@alias NumericLoopCondition { init: AssignmentExpression, goal: Expression, step?: Expression }
 ---@alias IterationLoopCondition { variable: Identifier[], iterable: Expression }
 ---@alias ForLoop { kindof: "ForLoop", condition: NumericLoopCondition|IterationLoopCondition, body: BlockStatement[] }
----@alias Statement Comment|ImportDeclaration|VariableDeclaration|VariableAssignment|FunctionDeclaration|ReturnStatement|PrototypeDeclaration|IfStatement|WhileLoop|BreakStatement|ForLoop
----@alias BlockStatement Statement|AssignmentExpression|CallExpression
+---@alias BreakStatement { kindof: "BreakStatement" }
+---@alias Statement Comment|ImportDeclaration|VariableDeclaration|FunctionDeclaration|ReturnStatement|PrototypeDeclaration|IfStatement|WhileLoop|ForLoop|BreakStatement|VariableAssignment
 ---@alias StatementExpression Statement|Expression
+---@alias BlockStatement Statement|CallExpression|NewExpression
 
 ---@alias AST { kindof: "Program"|"Module", body: StatementExpression[] }
-
----@alias ExpressionGenerator fun(node: Expression): string?
----@alias StatementGenerator fun(node: StatementExpression, level?: integer): string?
+---@alias Parser<T> fun(): T?
+---@alias Generator<T> fun(node: T, level?: integer): string?
 
 ---@alias JSONValue { [string]: JSONValue }|JSONValue[]|boolean|number|string

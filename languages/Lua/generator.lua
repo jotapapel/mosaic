@@ -1,5 +1,5 @@
 local json = require "lib.json"
-local generateExpression, generateStatement ---@type ExpressionGenerator, StatementGenerator
+local generateExpression, generateStatement ---@type Generator<Expression>, Generator<StatementExpression>
 
 --- Generate a code structure with the correct indentation.
 ---@param head string The header of the structure.
@@ -93,9 +93,7 @@ function generateStatement(node, level)
 	local kindof = node.kindof
 	-- Comment
 	if kindof == "Comment" then
-		local content = map(node.content, function (value)
-			return string.format("--%s", value)
-		end)
+		local content = map(node.content, function (value) return string.format("--%s", value) end)
 		return table.concat(content, "\n" .. string.rep("\t", level))
 	-- VariableDeclaration
 	elseif kindof == "VariableDeclaration" then
