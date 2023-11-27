@@ -1,41 +1,27 @@
 (function (modules)
-	local process
-	function process (id)
-		local fn, mapping = table.unpack(modules[id])
+	local require
+	function require (id)
+		local sourceFunc, mapping = table.unpack(modules[id])
 		local module = { exports = {} }
-		fn(function (name) return process(mapping[name]) end, module, module.exports)
+		sourceFunc(function (name) return require(mapping[name]) end, module, module.exports)
 		return module.exports
 	end
-	process(1)
+	require(1)
 end)({
 	{
 		-- index.lua
-		function (process, module, exports)
-			local _lib = process("lib.lua")
-			local _lib2 = (_lib and _lib.__module) and _lib or { default = _lib }
-			local testElement = _lib2.default("Joe")
-			testElement:greet()
+		function (require, module, exports)
+			local _lib = require("lib.lua")
+			local a, b = _lib.a, _lib.b
+			print(a, b)
 		end,
 		{ ["lib.lua"] = 2 }
 	},
 	{
 		-- lib.lua
-		function (process, module, exports)
+		function (require, module, exports)
 			rawset(exports, "__module", true)
-			local prototype = (function ()
-				local prototype = setmetatable({}, {
-					__call = function(prototype, name)
-						local self = setmetatable({}, { __index = prototype })
-						self.name = "Hello, " .. name .. "."
-						return self
-					end
-				})
-				function prototype.greet(self)
-					print(self.name)
-				end
-				return prototype
-			end)()
-			exports.default = prototype
+			exports.a, exports.b = 33, false
 		end,
 		{}
 	}

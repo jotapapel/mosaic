@@ -2,7 +2,7 @@ local scan = require "src.scanner"
 local json = require "lib.json"
 
 local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
-local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression>
+local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression, string[]>
 local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
 
 --- Throw a local error.
@@ -242,8 +242,9 @@ function parseExpression ()
 end
 
 ---@return StatementExpression?
+---@return string[]? exports?
 function parseStatement ()
-	local decorations, export ---@type string[]?, boolean?
+	local decorations, export ---@type string[]?, string[]?
 	while true do
 		repeat
 			local typeof, value, line = peek()
@@ -258,7 +259,7 @@ function parseStatement ()
 			-- Export
 			elseif typeof == "Export" then
 				consume()
-				export = true
+				export = {}
 				break
 			-- Comment
 			elseif typeof == "Comment" then
@@ -280,13 +281,16 @@ function parseStatement ()
 				local declarations = {} ---@type AssignmentExpression[]
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
 					local left = catch("<name> expected", parseExpression, "Identifier", "RecordLiteralExpression") --[[@as Identifier]]
+					if export and left.kindof == "Identifier" then
+						export[#export + 1] = left.value
+					end
 					local right = suppose("Equal") and ((left.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
 					declarations[#declarations + 1] = { kindof = "AssignmentExpression", left = left, operator = "=", right = right }
 					if not suppose("Comma") then
 						break
 					end
 				end
-				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations, export = export }
+				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations }, export
 			-- FunctionDeclaration
 			elseif typeof == "Function" then
 				consume()
@@ -437,13 +441,15 @@ function parseStatement ()
 end
 
 ---@param source string The raw source.
----@return { kindof: string, body: StatementExpression[] } #The AST table.
-return function (source, options)
+---@param kindof? string The AST special kind.
+---@return AST #The AST table.
+return function (source, kindof)
 	current, pop, peek = { value = "", line = 0 }, scan(source)
 	current.typeof, current.value, current.line = peek()
-	local ast = { kindof = "Program", body = {} }
+	local ast = { kindof = kindof or "Program", body = {}, exports = {} }
 	while current.typeof do
-		ast.body[#ast.body + 1] = parseStatement()
+		local statExpr, exports = parseStatement()
+		ast.body[#ast.body + 1], ast.exports = statExpr, exports and (function () for _, name in ipairs(exports) do ast.exports[#ast.exports + 1] = name end end)() or ast.exports
 	end
 	return ast
 end

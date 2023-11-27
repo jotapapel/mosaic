@@ -48,7 +48,9 @@
 ---@alias BlockStatement Statement|CallExpression|NewExpression
 
 ---@alias AST { kindof: "Program"|"Module", body: StatementExpression[] }
----@alias Parser<T> fun(): T?
+---@alias Parser<P,Q> fun(): P?, Q?
 ---@alias Generator<T> fun(node: T, level?: integer): string?
+
+---@alias FileBundle { id: integer, filename: string, dependencies: string[], code: string, mapping?: { [string]: integer } }
 
 ---@alias JSONValue { [string]: JSONValue }|JSONValue[]|boolean|number|string

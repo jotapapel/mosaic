@@ -1,3 +1,1 @@
 export var a = "HELLO", b = 991
-
-print(a, b)

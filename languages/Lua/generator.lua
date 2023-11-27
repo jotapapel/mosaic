@@ -95,6 +95,12 @@ function generateStatement(node, level)
 	if kindof == "Comment" then
 		local content = map(node.content, function (value) return string.format("--%s", value) end)
 		return table.concat(content, "\n" .. string.rep("\t", level))
+	-- ImportDeclaration
+	elseif kindof == "ImportDeclaration" then
+		local filename = string.match(generateExpression(node.filename), "/(.-).tle\"$")
+		local names = generateExpression(node.names)
+		local name = string.format("local _%s = process(\"%s.lua\")", filename, filename)
+		return name .. "local " .. names:match("^{%s*(.-)%s*}$") .. " = " .. "exports"
 	-- VariableDeclaration
 	elseif kindof == "VariableDeclaration" then
 		local lefts, rights, storage = {}, {}, (node.decorations and node.decorations["global"]) and "" or "local " ---@type string[], string[], string
@@ -235,11 +241,12 @@ function generateStatement(node, level)
 	end
 end
 
----@param ast AST
----@param level? integer
+---@param ast AST The AST to generate from.
+---@param level? integer The level of indentation to use.
+---@return string
 return function(ast, level)
 	local output = {}
-	for index_, node in ipairs(ast.body) do
+	for _, node in ipairs(ast.body) do
 		output[#output + 1] = string.rep("\t", level or 0) .. generateStatement(node, level)
 	end
 	return table.concat(output, "\n")

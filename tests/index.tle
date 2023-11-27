@@ -1,1 +1,2 @@
-a = 32, myRecord.myVariable = false
+import [a, b] from "./lib.tle"
+print(a, b)
