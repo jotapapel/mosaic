@@ -6,7 +6,7 @@ local name, target, option = ...
 local file <close> = io.open(name) or error("Source file not found.")
 local source = file:read("*a")
 
-local ast = parse(source)
+local ast = parse(source, "Module")
 --print(json.encode(ast, true))
 
 local output = generate(ast)

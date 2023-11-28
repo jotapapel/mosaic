@@ -1,5 +1,5 @@
 local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
-local decodeValue ---@type fun(): JSONValue
+local decodeValue ---@type Parser<JSONValue>
 local escapedCharacters <const> = { [116] = "\t", [92] = "\\", [34] = "\"", [98] = "\b", [102] = "\f", [110] = "\n", [114] = "\r" }
 
 --- Throw a local error.
@@ -16,7 +16,7 @@ end
 local function scan (source)
 	source = source:gsub("\\(.)", function (char) return string.format("\\%03d", string.byte(char)) end)
 	local index, lineIndex, len = 1, 1, source:len()
-	local function scan ()
+	local function token ()
 		while index <= len do
 			repeat
 				local typeof, fromIndex, toIndex ---@type string?, integer?, integer?
@@ -85,8 +85,8 @@ local function scan (source)
 			until true
 		end
 	end
-	return scan, function ()
-		local typeof, value, line, startIndex = scan()
+	return token, function ()
+		local typeof, value, line, startIndex = token()
 		index = startIndex or index
 		return typeof, value or "<eof>", line or lineIndex
 	end
@@ -104,25 +104,24 @@ end
 --- Expect a specific lexeme(s) from the scanner, throw an error when not found.
 ---@param message string The error message.
 ---@param ... string The expected types.
+---@return string #The expected type.
 local function expect (message, ...)
-	local lookup = {}
-	for _, expected in ipairs({...}) do lookup[expected] = true end
-	local typeof, value = consume()
-	if not lookup[typeof] then
-		throw(message .. " near '" .. value .. "'")
+	local found, typeof, value = false, consume()
+	for _, expected in ipairs({ ... }) do
+		found = found or (typeof == expected)
 	end
+	return found and value or throw(message .. " near '" .. value .. "'")
 end
 
 --- Suppose a specific lexeme(s) from the scanner, consume it when found, do nothing otherwise.
 ---@param ... string The supposed lexeme types.
 ---@return string? #The supposed lexeme value.
 local function suppose (...)
-	local lookup = {}
-	for _, expected in ipairs({...}) do lookup[expected] = true end
-	local typeof, value = peek()
-	if lookup[typeof] then
-		consume()
-		return value
+	for _, expected in ipairs({ ... }) do
+		if current.typeof == expected then
+			local _, value = consume()
+			return value
+		end
 	end
 end
 
@@ -152,35 +151,38 @@ end
 
 ---@return JSONValue[]
 local function decodeArray ()
-	if current.typeof ~= "LeftBracket" then
-		return decodeLiteral() --[[@as JSONValue]]
+	if current.typeof == "LeftBracket" then
+		consume()
+		local tbl = {} ---@type JSONValue[]
+		while current.typeof ~= "RightBracket" do
+			tbl[#tbl + 1] = decodeValue()
+			if not suppose "Comma" then
+				break
+			end
+		end
+		expect("']' expected", "RightBracket")
+		return tbl
 	end
-	consume()
-	local tbl = {} ---@type JSONValue[]
-	while current.typeof ~= "RightBracket" do
-		tbl[#tbl + 1] = decodeValue()
-		suppose("Comma")
-	end
-	expect("']' expected", "RightBracket")
-	return tbl
+	return decodeLiteral() --[[@as JSONValue]]
 end
 
 ---@return { [string]: JSONValue }
 local function decodeObject ()
-	if current.typeof ~= "LeftBrace" then
-		return decodeArray() --[[@as JSONValue]]
+	if current.typeof == "LeftBrace" then
+		consume()
+		local tbl = {} ---@type { [string]: JSONValue }
+		while current.typeof ~= "RightBrace" do
+			local key = expect("<key> expected", "String") --[[@as string]]
+			expect("':' missing after ", "Colon")
+			tbl[key] = decodeValue()
+			if not suppose "Comma" then
+				break
+			end
+		end
+		expect("'}' expected", "RightBrace")
+		return tbl
 	end
-	consume()
-	local tbl = {} ---@type { [string]: JSONValue }
-	while current.typeof ~= "RightBrace" do
-		local key = expect("<key> expected", "String") --[[@as string]]
-		expect("':' missing after ", "Colon")
-		local value = decodeValue()
-		suppose("Comma")
-		tbl[key] = value
-	end
-	expect("RightBrace", "'}' expected")
-	return tbl
+	return decodeArray() --[[@as JSONValue]]
 end
 
 ---@return JSONValue
@@ -188,8 +190,9 @@ function decodeValue ()
 	return decodeObject()
 end
 
----@param filename string
----@return JSONValue?
+--- Decode a JSON file.
+---@param filename string The file to decode.
+---@return JSONValue? #The JSON valu as a Lua table.
 local function decode (filename)
 	local file <close> = io.open(filename) or error("File not found.")
 	local source = file:read("*a")
@@ -208,7 +211,7 @@ local function serialize (value, level, visited)
 	level, visited = level or 1, visited or {}
 	local typeof = type(value)
 	if typeof == "function" or typeof == "userdata" then
-		error("Cannot display value <" .. typeof .. ">.", 3)
+		throw("Cannot display value <" .. typeof .. ">.")
 	elseif typeof == "string" then
 		return "\"" .. tostring(value) .. "\""
 	elseif typeof == "number" or typeof == "boolean" then
@@ -236,7 +239,7 @@ local function serialize (value, level, visited)
 end
 
 --- Display the value as a valid JSON string.
----@param value string|number|boolean|table The value to trace.
+---@param value string|number|boolean|table The value to encode.
 ---@param beautify boolean? Beautify the result.
 ---@return string #The serialized value.
 local function encode (value, beautify)

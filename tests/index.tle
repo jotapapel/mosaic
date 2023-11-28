@@ -1,2 +1,2 @@
-import [a, b] from "./lib.tle"
-print(a, b)
+export var a = 32
+var b = false

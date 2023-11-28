@@ -11,6 +11,7 @@ local keywords <const> = {
 	["import"] = true, ["from"] = true, ["export"] = true
 }
 
+--- Source code tokenizer.
 ---@param source string The raw source.
 ---@return NextLexeme
 ---@return CurrentLexeme
