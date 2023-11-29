@@ -1,2 +1,2 @@
 export var a = 32
-var b = false
+export function a.myFunction () end

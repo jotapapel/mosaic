@@ -242,8 +242,5 @@ return function(ast, level)
 	for _, node in ipairs(ast.body) do
 		output[#output + 1] = string.rep("\t", level or 0) .. generateStatement(node, level)
 	end
-	if ast.kindof == "Module" then
-		output[#output + 1] = generateStatement(ast.exports, level)
-	end
 	return table.concat(output, "\n")
 end
