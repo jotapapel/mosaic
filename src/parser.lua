@@ -308,10 +308,10 @@ function parseStatement ()
 					if name.kindof == "MemberExpression" then
 						throw("cannot export a record member")
 					end
-					local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = name, computed = false }
-					export = { kindof = "VariableAssignment", assignments = { { kindof = "AssignmentExpression", left = left, operator = "=", right = name } } }
+					local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = name --[[@as Identifier]], computed = false } ---@type MemberExpression
+					export = { kindof = "VariableAssignment", assignments = { { kindof = "AssignmentExpression", left = left, operator = "=", right = name --[[@as Identifier]] } } }
 				end
-				return { kindof = "FunctionDeclaration", name = name, parameters = parameters, body = body, decorations = decorations }, export
+				return { kindof = "FunctionDeclaration", name = name --[[@as Identifier]], parameters = parameters, body = body, decorations = decorations }, export
 			-- ReturnStatement
 			elseif typeof == "Return" then
 				consume()

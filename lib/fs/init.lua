@@ -1,17 +1,19 @@
 --- Takes a relative path as input and returns the corresponding absolute path.
----@param relative string The relative path.
+---@param relativePath string The relative path.
 ---@return string #The absolute path.
-local function toabsolute (relative)
-	local current <close> = io.popen("cd"):read("*n")
-	local absolute, parts = string.gsub(current .. "/" .. relative, "\\", "/"), {}
-	for part in absolute:gmatch("[^/]+") do
+local function toabsolute (relativePath)
+    local scriptDirectory = debug.getinfo(0, "S").source:sub(2):gsub("^[^/]", "/%1"):match("(.*[/\\])")
+    local absolutePath = scriptDirectory .. relativePath
+	absolutePath = absolutePath:gsub("\\", "/")
+	local parts = {}
+    for part in absolutePath:gmatch("[^/]+") do
 		if part == ".." then
 			table.remove(parts)
 		elseif part ~= "." then
-			table.insert(parts, part)
+			parts[#parts + 1] = part
 		end
 	end
-	return table.concat(parts, "/")
+    return table.concat(parts, "/")
 end
 
 --- Takes multiple path components as arguments and concatenates them into a single path.

@@ -1,2 +1,2 @@
-export var a = 32
-export function a.myFunction () end
+import a from "lib.tle"
+print(a)

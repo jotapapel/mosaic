@@ -1,1 +1,1 @@
-export var a = "HELLO", b = 991
+export var a = 32

@@ -5,10 +5,10 @@ local id = 0
 
 ---@param filename string
 ---@return FileBundle
-local function createAsset (filename)
+local function createAsset (filename, kindof)
 	local file <close> = io.open(filename) or error("Source file not found.")
 	local source = file:read("*a")
-	local ast, dependencies = parse(source), {} ---@type AST, string[]
+	local ast, dependencies = parse(source, kindof), {} ---@type AST, string[]
 	for _, node in ipairs(ast.body) do
 		if node.kindof == "ImportDeclaration" then
 			dependencies[#dependencies + 1] = node.filename.value
@@ -26,14 +26,14 @@ end
 ---@param entry string
 ---@return FileBundle[]
 local function createGraph (entry)
-	local mainAsset = createAsset(entry)
+	local mainAsset = createAsset(entry, "Program")
 	local queue = { mainAsset } ---@type FileBundle[]
 	for _, asset in ipairs(queue) do
 		asset.mapping = {}
 		local dirname = fs.getdir(asset.filename)
 		for _, relativePath in ipairs(asset.dependencies) do
 			local absolutePath = fs.join(dirname, relativePath)
-			local child = createAsset(absolutePath)
+			local child = createAsset(absolutePath, "Module")
 			asset.mapping[relativePath] = child.id
 			queue[#queue + 1] = child
 		end
@@ -51,21 +51,22 @@ local function bundle (graph)
 			mapping[#mapping + 1] = string.format("[\"%s\"] = %i", relativePath, moduleId)
 		end
 		modules[#modules + 1] = string.format([[{
-		function (process, module, exports)
+		-- %s
+		function (require, exports)
 %s
 		end,
 		{%s}
-	}]], module.code, #mapping > 0 and string.format(" %s ", table.concat(mapping, ", ")) or "")
+	}]], fs.toabsolute(module.filename), module.code, #mapping > 0 and string.format(" %s ", table.concat(mapping, ", ")) or "")
 	end
 	return string.format([[(function (modules)
-		local process
-		function process (id)
+		local require
+		function require (id)
 			local fn, mapping = table.unpack(modules[id])
 			local module = { exports = {} }
-			fn(function (name) return process(mapping[name]) end, module, module.exports)
+			fn(function (name) return require(mapping[name]) end, module.exports)
 			return module.exports
 		end
-		process(1)
+		require(1)
 end)({
 	%s
 })]], table.concat(modules, ",\n\t"))

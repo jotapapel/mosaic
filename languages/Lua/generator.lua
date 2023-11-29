@@ -94,6 +94,9 @@ function generateStatement(node, level)
 	if kindof == "Comment" then
 		local content = map(node.content, function (value) return string.format("--%s", value) end)
 		return table.concat(content, "\n" .. string.rep("\t", level))
+	-- ImportDeclaration
+	elseif kindof == "ImportDeclaration" then
+		return "-- import"
 	-- VariableDeclaration
 	elseif kindof == "VariableDeclaration" then
 		local lefts, rights, storage = {}, {}, (node.decorations and node.decorations["global"]) and "" or "local " ---@type string[], string[], string
@@ -238,7 +241,7 @@ end
 ---@param ast AST
 ---@param level? integer
 return function(ast, level)
-	local output = {}
+	local output = { ((ast.kindof == "Module") and string.format("%srawset(exports, \"__module\", true)", string.rep("\t", level)) or nil) --[[@as string]] } ---@type string[]
 	for _, node in ipairs(ast.body) do
 		output[#output + 1] = string.rep("\t", level or 0) .. generateStatement(node, level)
 	end
