@@ -8,7 +8,7 @@ local keywords <const> = {
 	["while"] = true, ["do"] = true, ["break"] = true,
 	["for"] = true, ["to"] = true, ["step"] = true, ["in"] = true,
 	["end"] = true,
-	["import"] = true, ["from"] = true, ["export"] = true
+	["import"] = true, ["from"] = true
 }
 
 --- Source code tokenizer.

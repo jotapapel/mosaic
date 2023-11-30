@@ -2,7 +2,7 @@ local scan = require "src.scanner"
 local json = require "lib.json"
 
 local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
-local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression, VariableAssignment>
+local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression, Identifier[]>
 local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
 
 --- Throw a local error.
@@ -234,7 +234,7 @@ function parseExpression ()
 	return parseRecordExpression()
 end
 
----@return StatementExpression?, AssignmentExpression[]?
+---@return StatementExpression?, Identifier[]?
 function parseStatement ()
 	local decorations, exportable ---@type string[]?, boolean?
 	while true do
@@ -245,13 +245,13 @@ function parseStatement ()
 				decorations = {} ---@type { [string]: true }
 				while suppose "At" do
 					local name = expect("<name> expected", "Identifier") --[[@as string]]
+					-- ExportDecoration
+					if name == "export" then
+						exportable = true
+						break
+					end
 					decorations[name] = true
 				end
-				break
-			-- ExportStatement
-			elseif typeof == "Export" then
-				consume()
-				exportable = true
 				break
 			-- Comment
 			elseif typeof == "Comment" then
@@ -263,16 +263,22 @@ function parseStatement ()
 			-- ImportDeclaration
 			elseif typeof == "Import" then
 				consume()
-				local names = suppose("Asterisk") or catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier") --[[@as RecordLiteralExpression|Identifier]]
+				local names = catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier") --[[@as RecordLiteralExpression|Identifier]]
+				local imports = { (names.kindof == "Identifier") and names or nil } ---@type Identifier[]
+				if names.kindof == "RecordLiteralExpression" then
+					for _, name in ipairs(names.elements) do
+						imports[#imports + 1] = (name.value.kindof == "Identifier") and name.value or throw("element must be an identifier")
+					end
+				end
 				expect("'from' expected", "From")
 				local filename = catch("<string> expected", parseTerm, "StringLiteral")
-				return { kindof = "ImportDeclaration", names = names, filename = filename }
+				return { kindof = "ImportDeclaration", imports = imports, filename = filename } --[[@as ImportDeclaration]]
 			-- VariableDeclaration
 			elseif typeof == "Var" then
 				consume()
-				local declarations, export = {}, nil ---@type AssignmentExpression[], VariableAssignment?
+				local declarations, exports = {}, exportable and {} ---@type AssignmentExpression[], Identifier[]?
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
-					local left = catch("<name> expected", parseExpression, "Identifier", "RecordLiteralExpression") --[[@as Identifier]]
+					local left = catch("<name> expected", parseExpression, "Identifier", exportable or "RecordLiteralExpression") --[[@as Identifier]]
 					local right = suppose("Equal") and ((left.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
 					declarations[#declarations + 1] = { kindof = "AssignmentExpression", left = left, operator = "=", right = right }
 					if not suppose "Comma" then
@@ -280,18 +286,16 @@ function parseStatement ()
 					end
 				end
 				if exportable then
-					export = { kindof = "VariableAssignment", assignments = {} }
 					for index, assignment in ipairs(declarations) do
-						local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = assignment.left, computed = false }
-						export.assignments[index] = { kindof = "AssignmentExpression", left = left, operator = "=", right = assignment.left }
+						exports[index] = assignment.left
 					end
 				end
-				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations }, export
+				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations }, exports
 			-- FunctionDeclaration
 			elseif typeof == "Function" then
 				consume()
-				local body, parameters, export = {}, {}, nil ---@type BlockStatement[], Identifier[], VariableAssignment?
-				local name = catch("<name> expected", parseMemberExpression, "Identifier", "MemberExpression") --[[@as Identifier|MemberExpression]]
+				local body, parameters, exports = {}, {}, nil ---@type BlockStatement[], Identifier[], Identifier[]?
+				local name = catch("<name> expected", parseMemberExpression, "Identifier", exportable or "MemberExpression") --[[@as Identifier|MemberExpression]]
 				expect("'(' expected after <name>", "LeftParenthesis")
 				while current.typeof == "Identifier" or current.typeof == "Ellipsis" do
 					parameters[#parameters + 1] = catch("<name> expected", parseTerm, "Identifier", "Ellipsis")
@@ -304,18 +308,11 @@ function parseStatement ()
 					body[#body + 1] = parseStatement()
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'function' at line %s)" or "", line), "End")
-				if exportable then
-					if name.kindof == "MemberExpression" then
-						throw("cannot export a record member")
-					end
-					local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = name --[[@as Identifier]], computed = false } ---@type MemberExpression
-					export = { kindof = "VariableAssignment", assignments = { { kindof = "AssignmentExpression", left = left, operator = "=", right = name --[[@as Identifier]] } } }
-				end
-				return { kindof = "FunctionDeclaration", name = name --[[@as Identifier]], parameters = parameters, body = body, decorations = decorations }, export
+				return { kindof = "FunctionDeclaration", name = name --[[@as Identifier]], parameters = parameters, body = body, decorations = decorations }, exportable and { name } or nil
 			-- ReturnStatement
 			elseif typeof == "Return" then
 				consume()
-				local arguments = { parseExpression() } ---@type Expression[]
+				local arguments = { parseExpression() --[[@as Expression]] } ---@type Expression[]
 				while suppose "Comma" do
 					arguments[#arguments + 1] = parseExpression()
 				end
@@ -449,10 +446,21 @@ end
 return function (source, kindof)
 	current, pop, peek = { value = "", line = 0 }, scan(source)
 	current.typeof, current.value, current.line = peek()
-	local ast = { kindof = kindof, body = {} } ---@type AST
+	local ast = { kindof = kindof, body = {}, exports = {} } ---@type AST
 	while current.typeof do
 		local statement, export = parseStatement()
-		ast.body[#ast.body + 1], ast.body[#ast.body + 2] = statement, export or nil
+		ast.body[#ast.body + 1] = statement
+		if export and ast.kindof == "Module" then
+			local node = { kindof = "VariableAssignment", assignments = {} } ---@type VariableAssignment
+			for _, identifier in ipairs(export) do
+				local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = identifier, computed = false } ---@type MemberExpression
+				if ast.exports[identifier.value] then
+					throw("<name> must be unique, '" .. identifier.value .. "' already exported")
+				end
+				node.assignments[#node.assignments + 1], ast.exports[identifier.value] = { kindof = "AssignmentExpression", left = left, operator = "=", right = identifier }, true
+			end
+			ast.body[#ast.body + 1] = node
+		end
 	end
 	return ast
 end

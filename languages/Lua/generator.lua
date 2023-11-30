@@ -1,6 +1,6 @@
 local json = require "lib.json"
 local generateExpression, generateStatement ---@type Generator<Expression>, Generator<StatementExpression>
-
+local output, exports ---@type { [string]: string }
 --- Generate a code structure with the correct indentation.
 ---@param head string The header of the structure.
 ---@param body table The elements of the structure body.
@@ -27,12 +27,17 @@ local function map (tbl, func)
 	return result
 end
 
+--- Generate an expression.
 ---@param node Expression
----@return string
+---@return string?
 function generateExpression(node)
 	local kindof = node.kindof
 	if kindof == "UnaryExpression" then
 		return node.operator .. generateExpression(node.argument)
+	elseif kindof == "Identifier" then
+		if exports[node.value] then
+			return string.format("%s.%s", exports[node.value], node.value)
+		end
 	elseif kindof == "StringLiteral" then
 		return string.format("\"%s\"", node.value)
 	elseif kindof == "Undefined" then
@@ -84,6 +89,7 @@ function generateExpression(node)
 	return node.value
 end
 
+--- Generate an statement.
 ---@param node StatementExpression
 ---@param level? integer
 ---@return string?
@@ -96,7 +102,12 @@ function generateStatement(node, level)
 		return table.concat(content, "\n" .. string.rep("\t", level))
 	-- ImportDeclaration
 	elseif kindof == "ImportDeclaration" then
-		return "-- import"
+		local filename = generateExpression(node.filename):match("^\"(.-)\"$")
+		local internal = string.format("__%s", filename:match("//?(.-)%."))
+		for _, import in ipairs(node.imports) do
+			exports[import.value] = internal
+		end
+		return string.format("local %s = require(\"%s\")", internal, filename)
 	-- VariableDeclaration
 	elseif kindof == "VariableDeclaration" then
 		local lefts, rights, storage = {}, {}, (node.decorations and node.decorations["global"]) and "" or "local " ---@type string[], string[], string
@@ -238,10 +249,13 @@ function generateStatement(node, level)
 	end
 end
 
----@param ast AST
----@param level? integer
+--- Generates source code in Lua based off an AST produced by the parser.
+---@param ast AST The abstract syntax tree.
+---@param level? integer Level of indentation to use.
+---@return string #The output source code.
 return function(ast, level)
-	local output = { ((ast.kindof == "Module") and string.format("%srawset(exports, \"__module\", true)", string.rep("\t", level)) or nil) --[[@as string]] } ---@type string[]
+	exports = {}
+	local output = {} ---@type string[]
 	for _, node in ipairs(ast.body) do
 		output[#output + 1] = string.rep("\t", level or 0) .. generateStatement(node, level)
 	end

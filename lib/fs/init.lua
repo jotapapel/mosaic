@@ -39,9 +39,14 @@ local function getdir (path)
 	return path:match("^.*[^/]+") or ""
 end
 
+local function filename (path)
+	return path:match("/?(.-)$", path)
+end
+
 ---@class fslib
 return {
 	toabsolute = toabsolute,
 	join = join,
-	getdir = getdir
+	getdir = getdir,
+	filename = filename
 }

@@ -31,7 +31,7 @@
 ---@alias Expression Term|MemberExpression|CallExpression|NewExpression|BinaryExpression|RecordLiteralExpression|ParenthesizedExpression
 
 ---@alias Comment { kindof: "Comment", content: string[] }
----@alias ImportDeclaration { kindof: "ImportDeclaration", names: Expression, filename: StringLiteral }
+---@alias ImportDeclaration { kindof: "ImportDeclaration", imports: Identifier[], filename: StringLiteral }
 ---@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: AssignmentExpression[], decorations?: string[] }
 ---@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[] }
 ---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, parameters: Identifier[], body: BlockStatement[], decorations?: string[] }
@@ -47,7 +47,7 @@
 ---@alias StatementExpression Statement|Expression
 ---@alias BlockStatement Statement|CallExpression|NewExpression
 
----@alias AST { kindof: "Program"|"Module", body: StatementExpression[] }
+---@alias AST { kindof: "Program"|"Module", body: StatementExpression[], exports: { [string]: true } }
 ---@alias Parser<P, Q> fun(): P?, Q?
 ---@alias Generator<T> fun(node: T, level?: integer): string?
 

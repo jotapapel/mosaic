@@ -1,2 +1,2 @@
-import a from "lib.tle"
-print(a)
+import [a, b] from "./lib.tle"
+print(a, b)

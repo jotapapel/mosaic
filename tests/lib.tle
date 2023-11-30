@@ -1,1 +1,4 @@
-export var a = 32
+@export var a = false
+@export function myFunction ()
+	-- comment
+end
