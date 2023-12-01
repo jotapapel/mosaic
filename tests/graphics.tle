@@ -1,4 +1,4 @@
-var graphics = [
+@export var graphics = [
 	"WIDTH": 240, "HEIGHT": 136,
 	"SOLID": "SOLID", "BOX": "BOX",
 	"BLACK": &0, "BRIGHT_BLACK": &1,
@@ -68,7 +68,7 @@ function graphics.rectangle (style, x1, y1, x2, y2, color, border)
 	error("Wrong drawing style", 2)
 end
 
-function graphics.circle(style, x, y, radius, color, border, adjust)
+function graphics.circle (style, x, y, radius, color, border, adjust)
 	var alter = (radius == 4) and 2 or 0
 	if style == graphics.BOX then
 		var x1 = 0, y1 = radius, decision = 3 - 2 * radius
@@ -111,12 +111,3 @@ function graphics.circle(style, x, y, radius, color, border, adjust)
 	end
 	error("Wrong drawing style", 2)
 end
-
-function TIC ()
-	graphics.clear(graphics.RED)
-	graphics.circle(graphics.BOX, 32, 32, 16, graphics.BRIGHT_RED)
-end
-
--- <PALETTE>
--- 000:000000333333881818e917171e821e3bdd3c1f1f7f3937e51862885db5e3ad9114e3e41c666666999999ccccccffffff
--- </PALETTE>

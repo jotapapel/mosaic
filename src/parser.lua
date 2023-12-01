@@ -248,7 +248,6 @@ function parseStatement ()
 					-- ExportDecoration
 					if name == "export" then
 						exportable = true
-						break
 					end
 					decorations[name] = true
 				end
@@ -321,7 +320,7 @@ function parseStatement ()
 			elseif typeof == "Prototype" then
 				consume()
 				local body, constructor = {}, false ---@type (Comment|VariableDeclaration|FunctionDeclaration)[], boolean
-				local name = catch("<name> expected", parseMemberExpression, "Identifier", "MemberExpression") --[[@as Expression]]
+				local name = catch("<name> expected", parseMemberExpression, "Identifier", exportable or "MemberExpression") --[[@as Expression]]
 				expect("Missing '{' after <name>", "LeftBrace")
 				local parent = (current.typeof ~= "RightBrace") and parseExpression() or nil ---@type Expression?
 				expect("Missing '}'", "RightBrace")
@@ -342,7 +341,7 @@ function parseStatement ()
 					body[#body + 1] = statement
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'prototype' at line %s)" or "", line), "End")
-				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }
+				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }, exportable and { name } or nil
 			-- IfStatement
 			elseif typeof == "If" then
 				local node = {}

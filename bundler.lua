@@ -72,6 +72,9 @@ end)({
 })]], table.concat(modules, ",\n\t"))
 end
 
-local graph = createGraph(...)
+local infile, target = ...
+local graph = createGraph(infile)
 local result = bundle(graph)
-print(result)
+
+local outfile <const>, err = io.open(target, "w+") --[[@as file*]]
+outfile:write(result)

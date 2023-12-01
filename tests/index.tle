@@ -1,2 +1,7 @@
-import [a, b] from "./lib.tle"
-print(a, b)
+import graphics from "./graphics.tle"
+import font from "./font.tle"
+
+@global function TIC ()
+	graphics.clear(graphics.WHITE)
+	font.print("HELLO WORLD!")
+end

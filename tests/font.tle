@@ -1,4 +1,6 @@
-var font = [
+import graphics from "./graphics.tle"
+
+@export var font = [
 	"SIZE": 8,
 	"STYLE_PLAIN": [
 		"ADDRESS": &20,
@@ -26,7 +28,7 @@ var font = [
 
 function font.print (text, x, y, color, style)
 	var width = 0
-	style = style or (x is "table" and x) or font.STYLE_PLAIN
+	style = style or (x is "table" and x) or self.STYLE_PLAIN
 	graphics.pal(graphics.BRIGHT_WHITE, color or graphics.BLACK)
 	for index = 1 to string.len(text) do
 		var char = string.sub(text, index, index), charw = style.WIDTH
