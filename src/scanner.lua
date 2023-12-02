@@ -1,4 +1,4 @@
----@type { [string]: true }
+---@type table<string, boolean>
 local keywords <const> = {
 	["and"] = true, ["or"] = true, ["is"] = true,
 	["var"] = true,
@@ -13,6 +13,7 @@ local keywords <const> = {
 
 --- Source code tokenizer.
 ---@param source string The raw source.
+---@return Lexeme
 ---@return NextLexeme
 ---@return CurrentLexeme
 return function (source)
@@ -174,7 +175,7 @@ return function (source)
 			until true
 		end
 	end
-	return scan, function ()
+	return { value = "", line = 0 }, scan, function ()
 		local typeof, value, line, startIndex = scan()
 		if startIndex then
 			index = startIndex

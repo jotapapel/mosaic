@@ -11,6 +11,7 @@ local function throw (message, line)
 end
 
 ---@param source string The raw source.
+---@return Lexeme
 ---@return NextLexeme
 ---@return CurrentLexeme
 local function scan (source)
@@ -85,7 +86,7 @@ local function scan (source)
 			until true
 		end
 	end
-	return token, function ()
+	return { value = "", line = 0 }, token, function ()
 		local typeof, value, line, startIndex = token()
 		index = startIndex or index
 		return typeof, value or "<eof>", line or lineIndex
@@ -166,11 +167,11 @@ local function decodeArray ()
 	return decodeLiteral() --[[@as JSONValue]]
 end
 
----@return { [string]: JSONValue }
+---@return table<string, JSONValue>
 local function decodeObject ()
 	if current.typeof == "LeftBrace" then
 		consume()
-		local tbl = {} ---@type { [string]: JSONValue }
+		local tbl = {} ---@type table<string, JSONValue>
 		while current.typeof ~= "RightBrace" do
 			local key = expect("<key> expected", "String") --[[@as string]]
 			expect("':' missing after ", "Colon")
@@ -196,7 +197,7 @@ end
 local function decode (filename)
 	local file <close> = io.open(filename) or error("File not found.")
 	local source = file:read("*a")
-	current, pop, peek = { value = "", line = 0 }, scan(source)
+	current, pop, peek = scan(source)
 	current.typeof, current.value, current.line = peek()
 	if current.typeof then
 		return decodeValue()

@@ -35,9 +35,7 @@ function generateExpression(node)
 	if kindof == "UnaryExpression" then
 		return node.operator .. generateExpression(node.argument)
 	elseif kindof == "Identifier" then
-		if exports[node.value] then
-			return string.format("%s.%s", exports[node.value], node.value)
-		end
+		return exports[node.value] or node.value
 	elseif kindof == "StringLiteral" then
 		return string.format("\"%s\"", node.value)
 	elseif kindof == "Undefined" then
@@ -46,12 +44,14 @@ function generateExpression(node)
 		local pattern, record, property = node.computed and "%s[%s]" or "%s.%s", generateExpression(node.record), generateExpression(node.property)
 		return string.format(pattern, record, property)
 	elseif kindof == "CallExpression" then
+		---@cast node +CallExpression<"CallExpression">
 		local caller, arguments = generateExpression(node.caller), {} ---@type string, string[]
 		for index, argument in ipairs(node.arguments) do
 			arguments[index] = generateExpression(argument)
 		end
 		return string.format("%s(%s)", caller, table.concat(arguments, ", "))
 	elseif kindof == "NewExpression" then
+		---@cast node +CallExpression<"NewExpression">
 		local caller, arguments = generateExpression(node.caller), {}
 		for index, argument in ipairs(node.arguments) do
 			arguments[index] = generateExpression(argument)
@@ -102,9 +102,9 @@ function generateStatement(node, level)
 		return table.concat(content, "\n" .. string.rep("\t", level))
 	-- ImportDeclaration
 	elseif kindof == "ImportDeclaration" then
-		local filename = generateExpression(node.filename):match("^\"(.-)\"$")
+		local filename = generateExpression(node.location):match("^\"(.-)\"$")
 		local internal = string.format("__%s", filename:match("//?(.-)%."))
-		for _, import in ipairs(node.imports) do
+		for _, import in ipairs(node.names) do
 			exports[import.value] = internal
 		end
 		return string.format("local %s = require(\"%s\")", internal, filename)

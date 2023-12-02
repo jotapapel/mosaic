@@ -118,7 +118,7 @@ end
 local function parseCallExpression (caller, instance)
 	local last = current.line
 	while suppose "LeftParenthesis" do
-		caller = { kindof = "CallExpression", caller = caller, arguments = { instance } } --[[@as CallExpression]]
+		caller = { kindof = "CallExpression", caller = caller, arguments = { instance } } --[[@as CallExpression<"CallExpression">]]
 		while current.typeof ~= "RightParenthesis" do
 			caller.arguments[#caller.arguments + 1] = parseExpression()
 			if not suppose "Comma" then
@@ -131,9 +131,9 @@ local function parseCallExpression (caller, instance)
 end
 
 ---@param caller Expression
----@return NewExpression
+---@return CallExpression<"NewExpression">
 local function parseNewExpression (caller)
-	caller = { kindof = "NewExpression", caller = caller, arguments = {} } --[[@as NewExpression]]
+	caller = { kindof = "NewExpression", caller = caller, arguments = {} } --[[@as CallExpression<"NewExpression">]]
 	while current.typeof ~= "RightBrace" do
 		caller.arguments[#caller.arguments + 1] = parseExpression()
 		suppose("Comma")
@@ -142,7 +142,7 @@ local function parseNewExpression (caller)
 	return caller
 end
 
----@return NewExpression|CallExpression|MemberExpression
+---@return CallExpression<"CallExpression"|"NewExpression">|MemberExpression
 local function parseNewCallMemberExpression()
 	local member = parseMemberExpression()
 	if suppose "LeftBrace" then
@@ -328,7 +328,7 @@ function parseStatement ()
 					local last, statement = current.line, catch("syntax error", parseStatement, "Comment", "VariableDeclaration", "FunctionDeclaration") --[[@as Comment|VariableDeclaration|FunctionDeclaration]]
 					if statement.kindof == "FunctionDeclaration" and statement.name.value == "constructor" then
 						if parent then
-							local firstStatement = statement.body[1]
+							local firstStatement = statement.body[1] ---@type CallExpression<"CallExpression">
 							if not (firstStatement and firstStatement.kindof == "CallExpression" and firstStatement.caller.value == "super") then
 								throw("'super' call required inside extended prototype constructor", last)
 							end
@@ -443,9 +443,9 @@ end
 ---@param kindof string The AST kind.
 ---@return AST #The AST table.
 return function (source, kindof)
-	current, pop, peek = { value = "", line = 0 }, scan(source)
-	current.typeof, current.value, current.line = peek()
 	local ast = { kindof = kindof, body = {}, exports = {} } ---@type AST
+	current, pop, peek = scan(source)
+	current.typeof, current.value, current.line = peek()
 	while current.typeof do
 		local statement, export = parseStatement()
 		ast.body[#ast.body + 1] = statement
