@@ -176,9 +176,9 @@ return function (source)
 		end
 	end
 	return { value = "", line = 0 }, scan, function ()
-		local typeof, value, line, startIndex = scan()
-		if startIndex then
-			index = startIndex
+		local typeof, value, line, last = scan()
+		if last then
+			index = last
 		end
 		return typeof, value or "<eof>", line or lineIndex
 	end
