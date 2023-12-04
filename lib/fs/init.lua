@@ -39,10 +39,15 @@ local function getdir (path)
 	return path:match("^.*[^/]+") or ""
 end
 
-local function filename (path)
-	return path:match("/?(.-)$", path)
+--- Returns the filename of a path.
+---@param filepath string The path to use.
+---@param extension? boolean Whether to append the file extension.
+---@return string #The filename.
+local function filename (filepath, extension)
+	return filepath:match("/?(.-)" .. (extension and "" or "%..-") .. "$")
 end
 
+--- Simple filesystem library.
 ---@class fslib
 return {
 	toabsolute = toabsolute,

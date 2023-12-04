@@ -1,6 +1,6 @@
 import graphics from "./graphics.tle"
 
-@export var font = [
+@export @default var font = [
 	"SIZE": 8,
 	"STYLE_PLAIN": [
 		"ADDRESS": &20,

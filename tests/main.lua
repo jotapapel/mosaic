@@ -9,13 +9,13 @@
 		require(1)
 end)({
 	{
-		-- tests/index.tle
+		-- tests/desktop.tle
 		function (require, exports)
 			local __graphics = require("./graphics.tle")
 			local __font = require("./font.tle")
 			function TIC ()
-				__graphics.graphics.clear(__graphics.graphics.BRIGHT_WHITE)
-				__font.font.print("HELLO WORLD!", 0, 0)
+				__graphics.clear(__graphics.BRIGHT_WHITE)
+				__font.print("HELLO WORLD!", 0, 0)
 			end
 		end,
 		{ ["./font.tle"] = 3, ["./graphics.tle"] = 2 }
@@ -24,7 +24,7 @@ end)({
 		-- tests/graphics.tle
 		function (require, exports)
 			local graphics = { WIDTH = 240, HEIGHT = 136, SOLID = "SOLID", BOX = "BOX", BLACK = 0, BRIGHT_BLACK = 1, RED = 2, BRIGHT_RED = 3, GREEN = 4, BRIGHT_GREEN = 5, BLUE = 6, BRIGHT_BLUE = 7, CYAN = 8, BRIGHT_CYAN = 9, YELLOW = 10, BRIGHT_YELLOW = 11, GRAY = 12, BRIGHT_GRAY = 13, WHITE = 14, BRIGHT_WHITE = 15 }
-			exports.graphics = graphics
+			exports = graphics
 			function graphics.clear (color)
 				color = color or 0
 				memset(0, (color * (2 ^ 4)) + color, 16320)
@@ -127,11 +127,11 @@ end)({
 		function (require, exports)
 			local __graphics = require("./graphics.tle")
 			local font = { SIZE = 8, STYLE_PLAIN = { ADDRESS = 32, WIDTH = 5, ADJUST = { [1] = "#%*%?$&%^mw", [-1] = "\"%%%+/<>\\{}", [-2] = "%(%),;%[%]`1jl", [-3] = "!\'%.:|i" } }, STYLE_BOLD = { ADDRESS = 128, WIDTH = 6, ADJUST = { [3] = "mw", [2] = "#", [1] = "%*%?MW^~", [-1] = "%%%+/<>\\{}", [-2] = "%(%)1,;%[%]`jl", [-3] = "!\'%.:|i" } } }
-			exports.font = font
+			exports = font
 			function font.print (text, x, y, color, style)
 				local width = 0
 				style = style or (type(x) == "table" and x) or font.STYLE_PLAIN
-				__graphics.graphics.pal(__graphics.graphics.BRIGHT_WHITE, color or __graphics.graphics.BLACK)
+				__graphics.pal(__graphics.BRIGHT_WHITE, color or __graphics.BLACK)
 				for index = 1, string.len(text) do
 					local char, charw = string.sub(text, index, index), style.WIDTH
 					for adjw, adjp in pairs(style.ADJUST) do
@@ -149,7 +149,7 @@ end)({
 					end
 					width = width + charw
 				end
-				__graphics.graphics.pal()
+				__graphics.pal()
 				return width - 1
 			end
 		end,

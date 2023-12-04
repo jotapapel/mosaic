@@ -14,8 +14,8 @@ local keywords <const> = {
 --- Source code tokenizer.
 ---@param source string The raw source.
 ---@return Lexeme
----@return NextLexeme
----@return CurrentLexeme
+---@return LexicalScanner
+---@return LexicalScanner
 return function (source)
 	source = source:gsub("\\(.)", function (c) return string.format("\\%03d", string.byte(c)) end)
 	local index, lineIndex, len = 1, 1, source:len()
@@ -183,3 +183,10 @@ return function (source)
 		return typeof, value or "<eof>", line or lineIndex
 	end
 end
+
+---@alias LexicalScanner fun(): string?, string, integer, integer?
+---@class Lexeme
+---@field typeof? string Lexeme type.
+---@field value string Lexeme value.
+---@field line integer Lexeme line number.
+---@field startIndex? integer

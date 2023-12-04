@@ -1,6 +1,6 @@
-local json = require "lib.json"
 local generateExpression, generateStatement ---@type Generator<Expression>, Generator<StatementExpression>
-local output, exports ---@type { [string]: string }
+local output, exports ---@type string[], table<string, string>
+
 --- Generate a code structure with the correct indentation.
 ---@param head string The header of the structure.
 ---@param body table The elements of the structure body.
@@ -36,9 +36,7 @@ function generateExpression(node, level)
 	if kindof == "UnaryExpression" then
 		return node.operator .. generateExpression(node.argument)
 	elseif kindof == "Identifier" then
-		if exports[node.value] then
-			return string.format("%s.%s", exports[node.value], node.value)
-		end
+		return exports[node.value] or node.value
 	elseif kindof == "StringLiteral" then
 		return string.format("\"%s\"", node.value)
 	elseif kindof == "Undefined" then
@@ -112,8 +110,12 @@ function generateStatement(node, level)
 	elseif kindof == "ImportDeclaration" then
 		local location = generateExpression(node.location):match("^\"(.-)\"$")
 		local internal = string.format("__%s", location:match("//?(.-)%."))
-		for _, name in ipairs(node.names) do
-			exports[name.value] = internal
+		if node.names.kindof then
+			exports[node.names.value] = internal
+		else
+			for _, name in ipairs(node.names) do
+				exports[name.value] = string.format("%s.%s", internal, name.value)
+			end
 		end
 		return string.format("local %s = require(\"%s\")", internal, location)
 	-- VariableDeclaration
@@ -257,10 +259,11 @@ end
 ---@param level? integer Level of indentation to use.
 ---@return string #The output source code.
 return function(ast, level)
-	exports = {}
-	local output = {} ---@type string[]
+	output, exports = {}, {}
 	for _, node in ipairs(ast.body) do
 		output[#output + 1] = string.rep("\t", level or 0) .. generateStatement(node, level)
 	end
 	return table.concat(output, "\n")
 end
+
+---@alias Generator<T> fun(node: T, level?: integer): string?

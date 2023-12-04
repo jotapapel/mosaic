@@ -1,5 +1,5 @@
-local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
-local decodeValue ---@type Parser<JSONValue>
+local current, pop, peek ---@type JSONLexeme, JSONLexicalScanner, JSONLexicalScanner
+local decodeValue ---@type JSONParser<JSONValue>
 local escapedCharacters <const> = { [116] = "\t", [92] = "\\", [34] = "\"", [98] = "\b", [102] = "\f", [110] = "\n", [114] = "\r" }
 
 --- Throw a local error.
@@ -10,14 +10,15 @@ local function throw (message, line)
 	os.exit()
 end
 
+--- Source code tokenizer.
 ---@param source string The raw source.
----@return Lexeme
----@return NextLexeme
----@return CurrentLexeme
+---@return JSONLexeme
+---@return JSONLexicalScanner
+---@return JSONLexicalScanner
 local function scan (source)
 	source = source:gsub("\\(.)", function (char) return string.format("\\%03d", string.byte(char)) end)
 	local index, lineIndex, len = 1, 1, source:len()
-	local function token ()
+	local function tokenize ()
 		while index <= len do
 			repeat
 				local typeof, fromIndex, toIndex ---@type string?, integer?, integer?
@@ -86,8 +87,8 @@ local function scan (source)
 			until true
 		end
 	end
-	return { value = "", line = 0 }, token, function ()
-		local typeof, value, line, startIndex = token()
+	return { value = "", line = 0 }, tokenize, function ()
+		local typeof, value, line, startIndex = tokenize()
 		index = startIndex or index
 		return typeof, value or "<eof>", line or lineIndex
 	end
@@ -204,6 +205,7 @@ local function decode (filename)
 	end
 end
 
+--- Serialize a value, producing a valid JSON value.
 ---@param value string|number|boolean|table The value to display.
 ---@param level? number The indent level.
 ---@param visited? boolean|table Wether the value has been displayed previously.
@@ -248,8 +250,18 @@ local function encode (value, beautify)
 	return beautify and value or value:gsub("[\n\t]", { ["\t"] = "", ["\n"] = string.char(32) })
 end
 
+--- Simple and straight-forward JSON library.
 ---@class jsonlib
 return {
 	decode = decode,
 	encode = encode
 }
+
+---@class JSONLexeme
+---@field typeof? string Lexeme type.
+---@field value string Lexeme value.
+---@field line integer Lexeme line number.
+---@field startIndex? integer
+---@alias JSONLexicalScanner fun(): string?, string, integer, integer?
+---@alias JSONParser<T> fun(): T?
+---@alias JSONValue table<string, JSONValue>|JSONValue[]|boolean|number|string

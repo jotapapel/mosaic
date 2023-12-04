@@ -1,4 +1,4 @@
-@export var graphics = [
+@export @default var graphics = [
 	"WIDTH": 240, "HEIGHT": 136,
 	"SOLID": "SOLID", "BOX": "BOX",
 	"BLACK": &0, "BRIGHT_BLACK": &1,

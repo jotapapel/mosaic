@@ -1,8 +1,8 @@
-local scan = require "src.scanner"
+local scan = require "src.parser.scanner"
 local json = require "lib.json"
 
-local current, pop, peek ---@type Lexeme, NextLexeme, CurrentLexeme
-local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression, Identifier[]>
+local current, pop, peek ---@type Lexeme, LexicalScanner, LexicalScanner
+local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression, Identifier|Identifier[]>
 local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
 
 --- Throw a local error.
@@ -258,7 +258,7 @@ function parseExpression ()
 	return parseLogicalExpression()
 end
 
----@return StatementExpression?, Identifier[]?
+---@return StatementExpression?, (Identifier|Identifier[])?
 function parseStatement ()
 	local decorations, exportable ---@type string[]?, boolean?
 	while true do
@@ -287,7 +287,7 @@ function parseStatement ()
 			elseif typeof == "Import" then
 				consume()
 				local imports = catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier") --[[@as RecordLiteralExpression|Identifier]]
-				local names = { ((imports.kindof == "Identifier") and imports or nil) --[[@as Identifier]] } ---@type Identifier[]
+				local names = (imports.kindof == "Identifier") and imports or {}
 				if imports.kindof == "RecordLiteralExpression" then
 					for _, name in ipairs(imports.elements) do
 						names[#names + 1] = (name.value.kindof == "Identifier") and name.value or throw("element must be an identifier") --[[@as Identifier]]
@@ -295,11 +295,11 @@ function parseStatement ()
 				end
 				expect("'from' expected", "From")
 				local location = catch("<string> expected", parseTerm, "StringLiteral")
-				return { kindof = "ImportDeclaration", names = names, location = location } --[[@as ImportDeclaration]]
+				return { kindof = "ImportDeclaration", names = names --[=[@as Identifier|Identifier[]]=], location = location }
 			-- VariableDeclaration
 			elseif typeof == "Var" then
 				consume()
-				local declarations, exports = {}, exportable and {} ---@type AssignmentExpression[], Identifier[]?
+				local declarations, exports = {}, exportable and {} ---@type AssignmentExpression[], (Identifier|Identifier[])?
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
 					local left = catch("<name> expected", parseExpression, "Identifier", exportable or "RecordLiteralExpression") --[[@as Identifier]]
 					local right = suppose("Equal") and ((left.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
@@ -309,8 +309,16 @@ function parseStatement ()
 					end
 				end
 				if exportable then
-					for index, assignment in ipairs(declarations) do
-						exports[index] = assignment.left
+					if decorations and decorations["default"] then
+						if #declarations > 1 then
+							throw("there can only be one default export")
+						else
+							exports = declarations[1].left
+						end
+					else
+						for index, assignment in ipairs(declarations) do
+							exports[index] = assignment.left
+						end
 					end
 				end
 				return { kindof = "VariableDeclaration", declarations = declarations, decorations = decorations }, exports
@@ -463,6 +471,7 @@ function parseStatement ()
 	end
 end
 
+--- Generates an AST from a raw source.
 ---@param source string The raw source.
 ---@param kindof string The AST kind.
 ---@return AST #The AST table.
@@ -475,15 +484,26 @@ return function (source, kindof)
 		ast.body[#ast.body + 1] = statement
 		if export and ast.kindof == "Module" then
 			local node = { kindof = "VariableAssignment", assignments = {} } ---@type VariableAssignment
-			for _, identifier in ipairs(export) do
-				local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = identifier, computed = false } ---@type MemberExpression
-				if ast.exports[identifier.value] then
-					throw("<name> must be unique, '" .. identifier.value .. "' already exported")
+			---@cast export +Identifier
+			if export.kindof == "Identifier" then
+				if ast.exports["default"] then
+					throw("default value already exported")
 				end
-				node.assignments[#node.assignments + 1], ast.exports[identifier.value] = { kindof = "AssignmentExpression", left = left, operator = "=", right = identifier }, true
+				node.assignments[#node.assignments + 1], ast.exports["default"] = { kindof = "AssignmentExpression", left = { kindof = "Identifier", value = "exports" }, operator = "=", right = export }, true
+			else
+				for _, identifier in ipairs(export) do
+					local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = identifier, computed = false } ---@type MemberExpression
+					if ast.exports[identifier.value] then
+						throw("<name> must be unique, '" .. identifier.value .. "' already exported")
+					end
+					node.assignments[#node.assignments + 1], ast.exports[identifier.value] = { kindof = "AssignmentExpression", left = left, operator = "=", right = identifier }, true
+				end
 			end
 			ast.body[#ast.body + 1] = node
 		end
 	end
 	return ast
 end
+
+---@alias Parser<P, Q> fun(): P?, Q?
+---@alias AST { kindof: "Program"|"Module", body: StatementExpression[], exports: table<string, boolean> }

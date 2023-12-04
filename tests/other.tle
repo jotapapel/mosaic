@@ -1,2 +1,0 @@
-import A from "./lib.tle"
-@export var B = A + A

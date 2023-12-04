@@ -1,9 +1,9 @@
-local json = require "lib.json"
 local fs = require "lib.fs"
 local parse = require "src.parser"
-local generate = require "languages.Lua.generator"
+local generate = require "src.generator.Lua"
 local id = 0
 
+--- Create an asset from a Lua file.
 ---@param location string
 ---@param kindof "Program"|"Module"
 ---@return FileBundle
@@ -25,6 +25,7 @@ local function createAsset (location, kindof)
 	}
 end
 
+--- Process a Lua file to bundle it's dependencies.
 ---@param entry string
 ---@return FileBundle[]
 local function createGraph (entry)
@@ -45,6 +46,7 @@ local function createGraph (entry)
 	return queue
 end
 
+--- Bundle all files and dependencies.
 ---@param graph FileBundle[]
 ---@return string
 local function bundle (graph)
@@ -76,9 +78,11 @@ end)({
 })]], table.concat(modules, ",\n\t"))
 end
 
-local infile, target = ...
-local graph = createGraph(infile)
+local mainFilepath, targetFilepath = ...
+local graph = createGraph(mainFilepath)
 local result = bundle(graph)
 
-local outfile <const>, err = io.open(target, "w+") --[[@as file*]]
+local outfile <const>, err = io.open(targetFilepath, "w+") --[[@as file*]]
 outfile:write(result)
+
+---@alias FileBundle { id: integer, location: string, dependencies: string[], code: string, mapping?: table<string, integer> }
