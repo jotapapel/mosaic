@@ -34,7 +34,15 @@ end
 function generateExpression(node, level)
 	local kindof = node.kindof
 	if kindof == "UnaryExpression" then
-		return node.operator .. generateExpression(node.argument)
+		local operator, argument = node.operator, generateExpression(node.argument)
+		if operator == "!" then
+			return string.format("not(%s)", argument)
+		elseif operator == "$" then
+			return string.format("tostring(%s)", argument)
+		elseif operator == "#" then
+			return string.format("tonumber(%s)", argument)
+		end
+		return operator .. argument
 	elseif kindof == "Identifier" then
 		return exports[node.value] or node.value
 	elseif kindof == "StringLiteral" then

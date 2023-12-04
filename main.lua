@@ -9,5 +9,10 @@ local source = file:read("*a")
 local ast = parse(source, "Program")
 local output = (option == "--ast") and json.encode(ast, true) or generate(ast)
 
-local outfile <const>, err = io.open(target, "w+") --[[@as file*]]
-outfile:write(output)
+if target == "--display" then
+	io.write(output, "\n")
+	os.exit()
+else
+	local outfile <const>, err = io.open(target, "w+") --[[@as file*]]
+	outfile:write(output)
+end

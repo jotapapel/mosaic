@@ -1,0 +1,19 @@
+import graphics from "./graphics.tle"
+
+var buffer = 0, current = 0
+@export @default var mouse = [
+	"LEFT": 1, "MIDDLE": -1, "RIGHT": 4,
+	"DEFAULT": &0, "WAIT": &1, "CROSSHAIR": &2,
+	"FORBIDDEN": &3, "POINTER": &4, "TEXT": &5, "MOVE": &6
+]
+
+function mouse.check (...)
+	var m = peek(&00FF86), [ button, repeat ] = [ ... ]
+	if select("#", ...) == 0 then
+		return m == 0
+	end
+	if !repeat then
+		return m == buton and buffer == 1
+	end
+	return m == button
+end

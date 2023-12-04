@@ -71,7 +71,7 @@ local function parseTerm ()
 	-- Strings
 	elseif typeof == "String" then
 		value = value:gsub("\\(%d%d%d)", function (d) return escapedCharacters[tonumber(d)] end)
-		return { kindof = "StringLiteral", value = value }
+		return { kindof = "StringLiteral", value = value, key = suppose("Colon") }
 	-- Numbers
 	elseif typeof == "Number" then
 		return { kindof = "NumberLiteral", value = tonumber(value) }
@@ -172,6 +172,7 @@ local function parseRecordExpression ()
 		while current.typeof ~= "RightBracket" do
 			local key ---@type (Identifier|StringLiteral)?
 			local value = parseExpression() --[[@as Expression]]
+			print(json.encode(value))
 			if value.kindof == "StringLiteral" and value.key then
 				if not (current.typeof == "Comma" or current.typeof == "RightBracket") then
 					key = value
@@ -214,7 +215,7 @@ local function parseMultiplicativeExpression ()
 	while current.typeof == "Asterisk" or current.typeof == "Slash" or current.typeof == "Circumflex" or current.typeof == "Percent" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseFunctionExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
@@ -225,7 +226,7 @@ local function parseAdditiveExpression ()
 	while current.typeof == "Plus" or current.typeof == "Minus" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseMultiplicativeExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
@@ -237,7 +238,7 @@ local function parseComparisonExpression ()
 		  or current.typeof == "GreaterEqual" or current.typeof == "LessEqual" or current.typeof == "NotEqual" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseAdditiveExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
@@ -248,7 +249,7 @@ local function parseLogicalExpression ()
 	while current.typeof == "And" or current.typeof == "Or" or current.typeof == "Is" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseComparisonExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
