@@ -7,9 +7,9 @@ local file <close> = io.open(name) or error("Source file not found.")
 local source = file:read("*a")
 
 local ast = parse(source, "Module")
---print(json.encode(ast, true))
+print(json.encode(ast, true))
 
-local output = generate(ast)
-print(output)
+--local output = generate(ast)
+--print(output)
 --local outfile <const>, err = io.open(target, "w+")
 --outfile:write(output)

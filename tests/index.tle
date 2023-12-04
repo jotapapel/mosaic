@@ -2,6 +2,6 @@ import graphics from "./graphics.tle"
 import font from "./font.tle"
 
 @global function TIC ()
-	graphics.clear(graphics.WHITE)
-	font.print("HELLO WORLD!")
+	graphics.clear(graphics.BRIGHT_WHITE)
+	font.print("HELLO WORLD!", 0, 0)
 end

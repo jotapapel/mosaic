@@ -19,15 +19,17 @@
 ---@alias Term UnaryExpression|Identifier|StringLiteral|NumberLiteral|BooleanLiteral|Undefined|Ellipsis
 
 ---@alias MemberExpression { kindof: "MemberExpression", record: Expression, property: Expression, computed: boolean, instance?: boolean }
----@alias CallExpression<T> { kindof: T, caller: Expression, arguments: Expression[] }
+---@alias CallExpression { kindof: "CallExpression", caller: Expression, arguments: Expression[] }
+---@alias NewExpression { kindof: "NewExpression", prototype: Expression, arguments: Expression[] }
 ---@alias BinaryOperator "and"|"or"|"is"|"=="|">"|"<"|">="|"<="|"<>"|"+"|"-"|"*"|"/"|"^"|"%"
 ---@alias BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: BinaryOperator, right: Expression }
 ---@alias RecordElement { kindof: "RecordElement", key?: (StringLiteral|Identifier|NumberLiteral)?, value: Expression }
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentOperator "="|"+="|"-="|"*="|"/="|"^="|"%="
 ---@alias AssignmentExpression { kindof: "AssignmentExpression", left?: MemberExpression|Identifier, operator?: AssignmentOperator, right: Expression }
+---@alias FunctionExpression { kindof: "FunctionExpression", parameters: Identifier[], body: BlockStatement[] }
 ---@alias ParenthesizedExpression { kindof: "ParenthesizedExpression", node: Expression }
----@alias Expression Term|MemberExpression|CallExpression|BinaryExpression|RecordLiteralExpression|ParenthesizedExpression
+---@alias Expression Term|MemberExpression|CallExpression|NewExpression|RecordLiteralExpression|FunctionExpression|BinaryExpression|ParenthesizedExpression
 
 ---@alias Comment { kindof: "Comment", content: string[] }
 ---@alias ImportDeclaration { kindof: "ImportDeclaration", names: Identifier[], location: StringLiteral }
@@ -43,13 +45,13 @@
 ---@alias ForLoop { kindof: "ForLoop", condition: NumericLoopCondition|IterationLoopCondition, body: BlockStatement[] }
 ---@alias BreakStatement { kindof: "BreakStatement" }
 ---@alias Statement Comment|ImportDeclaration|VariableDeclaration|FunctionDeclaration|ReturnStatement|PrototypeDeclaration|IfStatement|WhileLoop|ForLoop|BreakStatement|VariableAssignment
----@alias BlockStatement Statement|CallExpression<"NewExpression"|"CallExpression">
+---@alias BlockStatement Statement|CallExpression|NewExpression
 ---@alias StatementExpression Statement|Expression
 
 ---@alias AST { kindof: "Program"|"Module", body: StatementExpression[], exports: table<string, boolean> }
 ---@alias Parser<P, Q> fun(): P?, Q?
 ---@alias Generator<T> fun(node: T, level?: integer): string?
 
----@alias FileBundle { id: integer, filename: string, dependencies: string[], code: string, mapping?: table<string, integer> }
+---@alias FileBundle { id: integer, location: string, dependencies: string[], code: string, mapping?: table<string, integer> }
 
 ---@alias JSONValue table<string, JSONValue>|JSONValue[]|boolean|number|string

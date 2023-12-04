@@ -118,7 +118,7 @@ end
 local function parseCallExpression (caller, instance)
 	local last = current.line
 	while suppose "LeftParenthesis" do
-		caller = { kindof = "CallExpression", caller = caller, arguments = { instance } } --[[@as CallExpression<"CallExpression">]]
+		caller = { kindof = "CallExpression", caller = caller, arguments = { instance } } --[[@as CallExpression]]
 		while current.typeof ~= "RightParenthesis" do
 			caller.arguments[#caller.arguments + 1] = parseExpression()
 			if not suppose "Comma" then
@@ -130,19 +130,21 @@ local function parseCallExpression (caller, instance)
 	return caller
 end
 
----@param caller Expression
----@return CallExpression<"NewExpression">
-local function parseNewExpression (caller)
-	caller = { kindof = "NewExpression", caller = caller, arguments = {} } --[[@as CallExpression<"NewExpression">]]
+---@param prototype Identifier|MemberExpression
+---@return NewExpression
+local function parseNewExpression (prototype)
+	prototype = { kindof = "NewExpression", prototype = prototype, arguments = {} } --[[@as NewExpression]]
 	while current.typeof ~= "RightBrace" do
-		caller.arguments[#caller.arguments + 1] = parseExpression()
-		suppose("Comma")
+		prototype.arguments[#prototype.arguments + 1] = parseExpression()
+		if not suppose "Comma" then
+			break
+		end
 	end
 	expect("'}' expected", "RightBrace")
-	return caller
+	return prototype
 end
 
----@return CallExpression<"CallExpression"|"NewExpression">|MemberExpression
+---@return CallExpression|NewExpression|MemberExpression
 local function parseNewCallMemberExpression()
 	local member = parseMemberExpression()
 	if suppose "LeftBrace" then
@@ -154,7 +156,7 @@ local function parseNewCallMemberExpression()
 			local property = catch("<name> expected", parseTerm, "Identifier") --[[@as Expression]]
 			local caller = { kindof = "MemberExpression", record = member --[[@as Expression]], property = property, computed = false, instance = true }
 			return parseCallExpression(caller, member)
-		elseif (member.kindof == "StringLiteral") then
+		elseif member.kindof == "StringLiteral" then
 			---@cast member +StringLiteral
 			member.key = true
 			return member
@@ -163,13 +165,56 @@ local function parseNewCallMemberExpression()
 	return member
 end
 
+---@return RecordLiteralExpression|CallExpression|NewExpression|MemberExpression
+local function parseRecordExpression ()
+	if suppose "LeftBracket" then
+		local elements = {} ---@type RecordElement[]
+		while current.typeof ~= "RightBracket" do
+			local key ---@type (Identifier|StringLiteral)?
+			local value = parseExpression() --[[@as Expression]]
+			if value.kindof == "StringLiteral" and value.key then
+				if not (current.typeof == "Comma" or current.typeof == "RightBracket") then
+					key = value
+				end
+			end
+			elements[#elements + 1] = { kindof = "RecordElement", key = key, value = (key and parseExpression() or value) --[[@as Expression]] }
+			suppose("Comma")
+		end
+		expect("']' expected", "RightBracket")
+		return { kindof = "RecordLiteralExpression", elements = elements }
+	end
+	return parseNewCallMemberExpression()
+end
+
+---@return FunctionExpression|RecordLiteralExpression
+local function parseFunctionExpression ()
+	local line = current.line
+	if suppose "Function" then
+		local body, parameters = {}, {} ---@type BlockStatement[], Identifier[]
+		expect("'(' expected after 'function'", "LeftParenthesis")
+		while current.typeof == "Identifier" or current.typeof == "Ellipsis" do
+			parameters[#parameters + 1] = catch("<name> expected", parseTerm, "Identifier", "Ellipsis")
+			if not suppose "Comma" then
+				break
+			end
+		end
+		expect("')' expected", "RightParenthesis")
+		while current.typeof ~= "End" do
+			body[#body + 1] = parseStatement()
+		end
+		expect("'end' expected " .. string.format((current.line > line) and "(to close 'function' at line %s)" or "", line), "End")
+		return { kindof = "FunctionExpression", parameters = parameters, body = body } --[[@as FunctionExpression]]
+	end
+	return parseRecordExpression()
+end
+
 ---@return BinaryExpression
 local function parseMultiplicativeExpression ()
-	local left = parseNewCallMemberExpression()
+	local left = parseFunctionExpression()
 	while current.typeof == "Asterisk" or current.typeof == "Slash" or current.typeof == "Circumflex" or current.typeof == "Percent" do
 		local operator = current.value
 		consume()
-		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseNewCallMemberExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
+		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseFunctionExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
 	end
 	return left
 end
@@ -208,30 +253,9 @@ local function parseLogicalExpression ()
 	return left
 end
 
----@return RecordLiteralExpression|BinaryExpression
-local function parseRecordExpression ()
-	if suppose "LeftBracket" then
-		local elements = {} ---@type RecordElement[]
-		while current.typeof ~= "RightBracket" do
-			local key ---@type (Identifier|StringLiteral)?
-			local value = parseExpression() --[[@as Expression]]
-			if value.kindof == "StringLiteral" and value.key then
-				if not (current.typeof == "Comma" or current.typeof == "RightBracket") then
-					key = value
-				end
-			end
-			elements[#elements + 1] = { kindof = "RecordElement", key = key, value = (key and parseExpression() or value) --[[@as Expression]] }
-			suppose("Comma")
-		end
-		expect("']' expected", "RightBracket")
-		return { kindof = "RecordLiteralExpression", elements = elements }
-	end
-	return parseLogicalExpression()
-end
-
 ---@return Expression?
 function parseExpression ()
-	return parseRecordExpression()
+	return parseLogicalExpression()
 end
 
 ---@return StatementExpression?, Identifier[]?
@@ -262,16 +286,16 @@ function parseStatement ()
 			-- ImportDeclaration
 			elseif typeof == "Import" then
 				consume()
-				local names = catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier") --[[@as RecordLiteralExpression|Identifier]]
-				local imports = { (names.kindof == "Identifier") and names or nil } ---@type Identifier[]
-				if names.kindof == "RecordLiteralExpression" then
-					for _, name in ipairs(names.elements) do
-						imports[#imports + 1] = (name.value.kindof == "Identifier") and name.value or throw("element must be an identifier")
+				local imports = catch("<record> or <name> expected", parseRecordExpression, "RecordLiteralExpression", "Identifier") --[[@as RecordLiteralExpression|Identifier]]
+				local names = { ((imports.kindof == "Identifier") and imports or nil) --[[@as Identifier]] } ---@type Identifier[]
+				if imports.kindof == "RecordLiteralExpression" then
+					for _, name in ipairs(imports.elements) do
+						names[#names + 1] = (name.value.kindof == "Identifier") and name.value or throw("element must be an identifier") --[[@as Identifier]]
 					end
 				end
 				expect("'from' expected", "From")
-				local filename = catch("<string> expected", parseTerm, "StringLiteral")
-				return { kindof = "ImportDeclaration", imports = imports, filename = filename } --[[@as ImportDeclaration]]
+				local location = catch("<string> expected", parseTerm, "StringLiteral")
+				return { kindof = "ImportDeclaration", names = names, location = location } --[[@as ImportDeclaration]]
 			-- VariableDeclaration
 			elseif typeof == "Var" then
 				consume()
@@ -328,7 +352,7 @@ function parseStatement ()
 					local last, statement = current.line, catch("syntax error", parseStatement, "Comment", "VariableDeclaration", "FunctionDeclaration") --[[@as Comment|VariableDeclaration|FunctionDeclaration]]
 					if statement.kindof == "FunctionDeclaration" and statement.name.value == "constructor" then
 						if parent then
-							local firstStatement = statement.body[1] ---@type CallExpression<"CallExpression">
+							local firstStatement = statement.body[1] ---@type CallExpression
 							if not (firstStatement and firstStatement.kindof == "CallExpression" and firstStatement.caller.value == "super") then
 								throw("'super' call required inside extended prototype constructor", last)
 							end

@@ -1,23 +1,25 @@
+local json = require "lib.json"
 local fs = require "lib.fs"
 local parse = require "src.parser"
 local generate = require "languages.Lua.generator"
 local id = 0
 
----@param filename string
+---@param location string
+---@param kindof "Program"|"Module"
 ---@return FileBundle
-local function createAsset (filename, kindof)
-	local file <close> = io.open(filename) or error("Source file not found.")
+local function createAsset (location, kindof)
+	local file <close> = io.open(location) or error("Source file not found.")
 	local source = file:read("*a")
 	local ast, dependencies = parse(source, kindof), {} ---@type AST, string[]
 	for _, node in ipairs(ast.body) do
 		if node.kindof == "ImportDeclaration" then
-			dependencies[#dependencies + 1] = node.filename.value
+			dependencies[#dependencies + 1] = node.location.value
 		end
 	end
 	id = id + 1
 	return {
 		id = id,
-		filename = filename,
+		location = location,
 		dependencies = dependencies,
 		code = generate(ast, 3)
 	}
@@ -26,16 +28,18 @@ end
 ---@param entry string
 ---@return FileBundle[]
 local function createGraph (entry)
-	local mainAsset = createAsset(entry, "Program")
+	local mainAsset, mainDependencies = createAsset(entry, "Program"), {}
 	local queue = { mainAsset } ---@type FileBundle[]
 	for _, asset in ipairs(queue) do
 		asset.mapping = {}
-		local dirname = fs.getdir(asset.filename)
+		local dirname = fs.getdir(asset.location)
 		for _, relativePath in ipairs(asset.dependencies) do
 			local absolutePath = fs.join(dirname, relativePath)
 			local child = createAsset(absolutePath, "Module")
-			asset.mapping[relativePath] = child.id
-			queue[#queue + 1] = child
+			asset.mapping[relativePath] = mainDependencies[relativePath] or child.id
+			if not mainDependencies[relativePath] then
+				queue[#queue + 1], mainDependencies[relativePath] = child, child.id
+			end
 		end
 	end
 	return queue
@@ -56,7 +60,7 @@ local function bundle (graph)
 %s
 		end,
 		{%s}
-	}]], fs.toabsolute(module.filename), module.code, #mapping > 0 and string.format(" %s ", table.concat(mapping, ", ")) or "")
+	}]], fs.toabsolute(module.location), module.code, #mapping > 0 and string.format(" %s ", table.concat(mapping, ", ")) or "")
 	end
 	return string.format([[(function (modules)
 		local require

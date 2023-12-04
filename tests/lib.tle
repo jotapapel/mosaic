@@ -1,4 +1,1 @@
-@export var a = false
-@export function myFunction ()
-	-- comment
-end
+@export var A = 2
