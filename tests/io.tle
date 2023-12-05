@@ -1,19 +1,46 @@
 import graphics from "./graphics.tle"
 
 var buffer = 0, current = 0
-@export @default var mouse = [
+
+@export var mouse = [
 	"LEFT": 1, "MIDDLE": -1, "RIGHT": 4,
 	"DEFAULT": &0, "WAIT": &1, "CROSSHAIR": &2,
 	"FORBIDDEN": &3, "POINTER": &4, "TEXT": &5, "MOVE": &6
 ]
 
 function mouse.check (...)
-	var m = peek(&00FF86), [ button, repeat ] = [ ... ]
-	if select("#", ...) == 0 then
+	var signal = peek(&00FF86), [ button, isRepeat ] = [ ... ]
+	if #... == 0 then
 		return m == 0
 	end
-	if !repeat then
-		return m == buton and buffer == 1
-	end
-	return m == button
+	return (signal == button) and (!isRepeat and (buffer == 1) or true)
+end
+
+function mouse.clear ()
+	poke(&0FF86)
+end
+
+function mouse.cursor (typeof)
+	current = typeof or mouse.DEFAULT
+end
+
+function mouse.inside (x1, y1, x2, y2)
+	var x = peek(&0FF84), y = peek(&0FF85)
+	return x >= math.min(x1, x2) and x < math.max(x1, x2) and y >= math.min(y1, y2) and y < math.max(y1, y2)
+end
+
+function mouse.update ()
+	var signal = peek(&0FF86), x = peek(&0FF84), y = peek(&0FF85)
+	buffer = (signal > 0) and math.min(buffer + 1, 2) or 0
+	poke(&03FFB, 0)
+	graphics.pal(graphics.BRIGHT_BLACK, graphics.BLACK)
+	spr(current * 2, x - 5, y - 5, 0, 1, 0, 0, 2, 2)
+	graphics.pal()
+end
+
+@export var keyboard = []
+
+function keyboard.check (key, isRepeat)
+	var func = isRepeat and key or keyb
+	return func(key)
 end

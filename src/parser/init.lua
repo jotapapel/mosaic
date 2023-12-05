@@ -1,8 +1,9 @@
 local scan = require "src.parser.scanner"
 local json = require "lib.json"
 
-local current, pop, peek ---@type Lexeme, LexicalScanner, LexicalScanner
+local parseNewCallMemberExpression ---@type Parser<CallExpression|NewExpression|MemberExpression>
 local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression, Identifier|Identifier[]>
+local current, pop, peek ---@type Lexeme, LexicalScanner, LexicalScanner
 local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
 
 --- Throw a local error.
@@ -62,30 +63,31 @@ end
 ---@return Term?
 local function parseTerm ()
 	local typeof, value = consume()
-	-- UnaryExpressions
+	-- UnaryExpression
 	if typeof == "Minus" or typeof == "Dollar" or typeof == "Pound" or typeof == "Bang" then
-		return { kindof = "UnaryExpression", operator = value, argument = parseExpression() }
-	-- Identifiers
+		return { kindof = "UnaryExpression", operator = value, argument = parseNewCallMemberExpression() --[[@as Expression]] }
+	-- Identifier
 	elseif typeof == "Identifier" then
 		return { kindof = "Identifier", value = value }
-	-- Strings
+	-- StringLiteral
 	elseif typeof == "String" then
 		value = value:gsub("\\(%d%d%d)", function (d) return escapedCharacters[tonumber(d)] end)
-		return { kindof = "StringLiteral", value = value, key = suppose("Colon") }
-	-- Numbers
+		return { kindof = "StringLiteral", value = value }
+	-- NumberLiteral
 	elseif typeof == "Number" then
 		return { kindof = "NumberLiteral", value = tonumber(value) }
 	elseif typeof == "Hexadecimal" then
 		return { kindof = "NumberLiteral", value = tonumber(value, 16) }
-	-- Booleans
+	-- Boolean
 	elseif typeof == "Boolean" then
 		return { kindof = "BooleanLiteral", value = value }
-	-- Undefined or Ellipsis
+	-- Undefined
 	elseif typeof == "Undefined" then
 		return { kindof = typeof }
+	-- Ellipsis
 	elseif typeof == "Ellipsis" then
 		return { kindof = "Ellipsis", value = value }
-	-- Parenthesized expressions
+	-- ParenthesizedExpression
 	elseif typeof == "LeftParenthesis" then
 		local node = parseExpression() --[[@as Expression]]
 		expect("')' expected", "RightParenthesis")
@@ -145,73 +147,31 @@ local function parseNewExpression (prototype)
 end
 
 ---@return CallExpression|NewExpression|MemberExpression
-local function parseNewCallMemberExpression()
+function parseNewCallMemberExpression()
 	local member = parseMemberExpression()
-	if suppose "LeftBrace" then
-		return parseNewExpression(member)
-	elseif current.typeof == "LeftParenthesis" then
-		return parseCallExpression(member)
-	elseif suppose "Colon" then
-		if (member.kindof == "MemberExpression" or member.kindof == "Identifier") then
-			local property = catch("<name> expected", parseTerm, "Identifier") --[[@as Expression]]
-			local caller = { kindof = "MemberExpression", record = member --[[@as Expression]], property = property, computed = false, instance = true }
-			return parseCallExpression(caller, member)
-		elseif member.kindof == "StringLiteral" then
-			---@cast member +StringLiteral
-			member.key = true
-			return member
+	if member.kindof == "Identifier" or member.kindof == "MemberExpression" then
+		if suppose "LeftBrace" then
+			return parseNewExpression(member)
+		elseif current.typeof == "LeftParenthesis" then
+			return parseCallExpression(member)
+		elseif suppose "Colon" then
+			if (member.kindof == "MemberExpression" or member.kindof == "Identifier") then
+				local property = catch("<name> expected", parseTerm, "Identifier") --[[@as Expression]]
+				local caller = { kindof = "MemberExpression", record = member --[[@as Expression]], property = property, computed = false, instance = true }
+				return parseCallExpression(caller, member)
+			elseif member.kindof == "StringLiteral" then
+				---@cast member +StringLiteral
+				member.key = true
+				return member
+			end
 		end
 	end
 	return member
 end
 
----@return RecordLiteralExpression|CallExpression|NewExpression|MemberExpression
-local function parseRecordExpression ()
-	if suppose "LeftBracket" then
-		local elements = {} ---@type RecordElement[]
-		while current.typeof ~= "RightBracket" do
-			local key ---@type (Identifier|StringLiteral)?
-			local value = parseExpression() --[[@as Expression]]
-			print(json.encode(value))
-			if value.kindof == "StringLiteral" and value.key then
-				if not (current.typeof == "Comma" or current.typeof == "RightBracket") then
-					key = value
-				end
-			end
-			elements[#elements + 1] = { kindof = "RecordElement", key = key, value = (key and parseExpression() or value) --[[@as Expression]] }
-			suppose("Comma")
-		end
-		expect("']' expected", "RightBracket")
-		return { kindof = "RecordLiteralExpression", elements = elements }
-	end
-	return parseNewCallMemberExpression()
-end
-
----@return FunctionExpression|RecordLiteralExpression
-local function parseFunctionExpression ()
-	local line = current.line
-	if suppose "Function" then
-		local body, parameters = {}, {} ---@type BlockStatement[], Identifier[]
-		expect("'(' expected after 'function'", "LeftParenthesis")
-		while current.typeof == "Identifier" or current.typeof == "Ellipsis" do
-			parameters[#parameters + 1] = catch("<name> expected", parseTerm, "Identifier", "Ellipsis")
-			if not suppose "Comma" then
-				break
-			end
-		end
-		expect("')' expected", "RightParenthesis")
-		while current.typeof ~= "End" do
-			body[#body + 1] = parseStatement()
-		end
-		expect("'end' expected " .. string.format((current.line > line) and "(to close 'function' at line %s)" or "", line), "End")
-		return { kindof = "FunctionExpression", parameters = parameters, body = body } --[[@as FunctionExpression]]
-	end
-	return parseRecordExpression()
-end
-
----@return BinaryExpression
+---@return BinaryExpression|CallExpression|NewExpression|MemberExpression
 local function parseMultiplicativeExpression ()
-	local left = parseFunctionExpression()
+	local left = parseNewCallMemberExpression()
 	while current.typeof == "Asterisk" or current.typeof == "Slash" or current.typeof == "Circumflex" or current.typeof == "Percent" do
 		local operator = current.value
 		consume()
@@ -254,9 +214,52 @@ local function parseLogicalExpression ()
 	return left
 end
 
+---@return RecordLiteralExpression|BinaryExpression
+local function parseRecordExpression ()
+	if suppose "LeftBracket" then
+		local elements = {} ---@type RecordElement[]
+		while current.typeof ~= "RightBracket" do
+			local key ---@type (Identifier|StringLiteral)?
+			local value = parseExpression() --[[@as Expression]]
+			if value.kindof == "StringLiteral" and suppose("Colon") then
+				if not (current.typeof == "Comma" or current.typeof == "RightBracket") then
+					key = value
+				end
+			end
+			elements[#elements + 1] = { kindof = "RecordElement", key = key, value = (key and parseExpression() or value) --[[@as Expression]] }
+			suppose("Comma")
+		end
+		expect("']' expected", "RightBracket")
+		return { kindof = "RecordLiteralExpression", elements = elements }
+	end
+	return parseLogicalExpression()
+end
+
+---@return FunctionExpression|RecordLiteralExpression
+local function parseFunctionExpression ()
+	local line = current.line
+	if suppose "Function" then
+		local body, parameters = {}, {} ---@type BlockStatement[], Identifier[]
+		expect("'(' expected after 'function'", "LeftParenthesis")
+		while current.typeof == "Identifier" or current.typeof == "Ellipsis" do
+			parameters[#parameters + 1] = catch("<name> expected", parseTerm, "Identifier", "Ellipsis")
+			if not suppose "Comma" then
+				break
+			end
+		end
+		expect("')' expected", "RightParenthesis")
+		while current.typeof ~= "End" do
+			body[#body + 1] = parseStatement()
+		end
+		expect("'end' expected " .. string.format((current.line > line) and "(to close 'function' at line %s)" or "", line), "End")
+		return { kindof = "FunctionExpression", parameters = parameters, body = body } --[[@as FunctionExpression]]
+	end
+	return parseRecordExpression()
+end
+
 ---@return Expression?
 function parseExpression ()
-	return parseLogicalExpression()
+	return parseFunctionExpression()
 end
 
 ---@return StatementExpression?, (Identifier|Identifier[])?
@@ -490,7 +493,7 @@ return function (source, kindof)
 				if ast.exports["default"] then
 					throw("default value already exported")
 				end
-				node.assignments[#node.assignments + 1], ast.exports["default"] = { kindof = "AssignmentExpression", left = { kindof = "Identifier", value = "exports" }, operator = "=", right = export }, true
+				node.assignments[#node.assignments + 1], ast.exports["default"] = { kindof = "AssignmentExpression", left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = { kindof = "Identifier", value = "default" }, computed = false }, operator = "=", right = export }, true
 			else
 				for _, identifier in ipairs(export) do
 					local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "exports" }, property = identifier, computed = false } ---@type MemberExpression

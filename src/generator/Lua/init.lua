@@ -40,6 +40,9 @@ function generateExpression(node, level)
 		elseif operator == "$" then
 			return string.format("tostring(%s)", argument)
 		elseif operator == "#" then
+			if node.argument.kindof == "Ellipsis" then
+				return "select(\"#\", ...)"
+			end
 			return string.format("tonumber(%s)", argument)
 		end
 		return operator .. argument
@@ -82,13 +85,13 @@ function generateExpression(node, level)
 				if string.match(element.key.value, "^[_%a][_%w]*$") then
 					element.key.kindof, pattern = "Identifier", "%s = %s"
 				elseif tonumber(element.key.value) then
-					element.key.kindof, element.key.value = "NumberLiteral", tonumber(element.key.value)	
+					element.key.kindof, element.key.value = "NumberLiteral", tonumber(element.key.value)
 				end
 			end
 			local key, value = element.key and generateExpression(element.key), generateExpression(element.value) --[[@as string]]
 			parts[index] = key and string.format(pattern, key, value) or string.format("%s", value)
 		end
-		return string.format("{ %s }", table.concat(parts, ", "))
+		return string.format(#parts > 0 and "{ %s }" or "{}", table.concat(parts, ", "))
 	elseif kindof == "FunctionExpression" then
 		local parameters = map(node.parameters, generateExpression) ---@type string[]
 		local body = {} ---@type string[]
@@ -119,7 +122,7 @@ function generateStatement(node, level)
 		local location = generateExpression(node.location):match("^\"(.-)\"$")
 		local internal = string.format("__%s", location:match("//?(.-)%."))
 		if node.names.kindof then
-			exports[node.names.value] = internal
+			exports[node.names.value] = string.format("%s.default", internal)
 		else
 			for _, name in ipairs(node.names) do
 				exports[name.value] = string.format("%s.%s", internal, name.value)
@@ -132,7 +135,7 @@ function generateStatement(node, level)
 		for index, declaration in ipairs(node.declarations) do
 			local left, right = generateExpression(declaration.left) --[[@as string]], declaration.right and generateExpression(declaration.right, level) --[[@as string]] or "nil"
 			if declaration.left.kindof == "RecordLiteralExpression" then
-				left, right = left:match("^{%s*(.-)%s*}$"), (right == "...") and string.format("table.unpack(%s)", right) or right:match("^{%s*(.-)%s*}")
+				left, right = left:match("^{%s*(.-)%s*}$"), (right == "...") and right or string.format("table.unpack(%s)", right)
 			end
 			lefts[index], rights[index] = left, right
 		end

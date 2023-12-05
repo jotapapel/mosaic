@@ -1,7 +1,8 @@
 import graphics from "./graphics.tle"
 import font from "./font.tle"
+import [ mouse, keyboard ] from "./io.tle"
 
 @global function TIC ()
 	graphics.clear(graphics.BRIGHT_WHITE)
-	font.print("HELLO WORLD!", 0, 0)
+	mouse.update()
 end

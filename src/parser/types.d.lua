@@ -16,7 +16,7 @@
 ---@alias NewExpression { kindof: "NewExpression", prototype: Expression, arguments: Expression[] }
 ---@alias BinaryOperator "and"|"or"|"is"|"=="|">"|"<"|">="|"<="|"<>"|"+"|"-"|"*"|"/"|"^"|"%"
 ---@alias BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: BinaryOperator, right: Expression }
----@alias RecordElement { kindof: "RecordElement", key?: (StringLiteral|Identifier|NumberLiteral)?, value: Expression }
+---@alias RecordElement { kindof: "RecordElement", key?: StringLiteral|Identifier|NumberLiteral, value: Expression }
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentOperator "="|"+="|"-="|"*="|"/="|"^="|"%="
 ---@alias AssignmentExpression { kindof: "AssignmentExpression", left?: MemberExpression|Identifier, operator?: AssignmentOperator, right: Expression }
