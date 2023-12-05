@@ -4,3 +4,18 @@ The current programming language Mosaic uses is called ``Tile`` and is a superse
 
 Mosaic also comes with a tiny bundler that packs a modular structure into a single file. 
 (credits to [Minipack](https://github.com/ronami/minipack) for the inspo.)
+
+--- Usage
+
+To use the transpiler simply type:
+´´´
+lua main.lua (Tile file path) [(target Lua file path)|--display] [--ast]
+´´´
+
+The ´´--display´´ options prints the transpiled file to the terminal and the ´´--ast´´ option instead generates a JSON file containing the abstract syntax tree.
+
+
+To use the bundler type:
+´´´
+lua bundler.lua (main Tile file path) (target Lua file path)
+´´´
