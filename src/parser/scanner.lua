@@ -147,7 +147,18 @@ return function (source)
 						typeof = "RightParenthesis"
 					elseif char == "." then
 						typeof = "Dot"
-						if source:sub(index, index + 1) == ".." then
+						if adjacent:match("%d") then
+							typeof, index = "Number", index + 1
+							while index <= len and source:sub(index, index):match("%d") do
+								index = index + 1
+							end
+						elseif adjacent == "." and source:sub(index, index + 1) ~= ".." then
+							if source:sub(index + 1, index + 1) == "=" then
+								typeof, index = "ConcatEqual", index + 2
+							else
+								typeof, index = "Concat", index + 1
+							end
+						elseif source:sub(index, index + 1) == ".." then
 							typeof, index = "Ellipsis", index + 2
 						end
 					elseif char == "," then

@@ -1,7 +1,7 @@
 ---@meta NodeTypes
 
 --- Terms
----@alias UnaryExpression { kindof: "UnaryExpression", operator: "-"|"$"|"#"|"!", argument: Expression }
+---@alias UnaryExpression { kindof: "UnaryExpression", operator: "-"|"$"|"#"|"!"|"...", argument: Expression }
 ---@alias Identifier { kindof: "Identifier", value: string }
 ---@alias StringLiteral { kindof: "StringLiteral", value: string, key?: boolean }
 ---@alias NumberLiteral { kindof: "NumberLiteral", value: number }

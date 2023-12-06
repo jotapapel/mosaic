@@ -1,7 +1,7 @@
 local scan = require "src.parser.scanner"
 local json = require "lib.json"
 
-local parseNewCallMemberExpression ---@type Parser<CallExpression|NewExpression|MemberExpression>
+local parseMemberExpression, parseNewCallMemberExpression ---@type Parser<MemberExpression|Term>, Parser<CallExpression|NewExpression|MemberExpression>
 local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression, Identifier|Identifier[]>
 local current, pop, peek ---@type Lexeme, LexicalScanner, LexicalScanner
 local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
@@ -86,6 +86,9 @@ local function parseTerm ()
 		return { kindof = typeof }
 	-- Ellipsis
 	elseif typeof == "Ellipsis" then
+		if current.typeof == "Identifier" then
+			return { kindof = "UnaryExpression", operator = "...", argument = parseMemberExpression() }
+		end
 		return { kindof = "Ellipsis", value = value }
 	-- ParenthesizedExpression
 	elseif typeof == "LeftParenthesis" then
@@ -97,8 +100,8 @@ local function parseTerm ()
 	throw("unexpected symbol near '" .. value .. "'")
 end
 
----@return MemberExpression
-local function parseMemberExpression ()
+---@return MemberExpression|Term
+function parseMemberExpression ()
 	local record = parseTerm() --[[@as Term]]
 	while current.typeof == "Dot" or current.typeof == "LeftBracket"  do
 		local property, computed ---@type Expression, boolean
@@ -183,7 +186,7 @@ end
 ---@return BinaryExpression
 local function parseAdditiveExpression ()
 	local left = parseMultiplicativeExpression()
-	while current.typeof == "Plus" or current.typeof == "Minus" do
+	while current.typeof == "Plus" or current.typeof == "Minus" or current.typeof == "Concat" do
 		local operator = current.value
 		consume()
 		left = { kindof = "BinaryExpression", left = left --[[@as Expression]], operator = operator, right = parseExpression() --[[@as Expression]] } --[[@as BinaryExpression]]
@@ -306,7 +309,7 @@ function parseStatement ()
 				local declarations, exports = {}, exportable and {} ---@type AssignmentExpression[], (Identifier|Identifier[])?
 				while current.typeof == "Identifier" or current.typeof == "LeftBracket" do
 					local left = catch("<name> expected", parseExpression, "Identifier", exportable or "RecordLiteralExpression") --[[@as Identifier]]
-					local right = suppose("Equal") and ((left.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis") or parseExpression()) --[[@as Expression]]
+					local right = suppose("Equal") and ((left.kindof == "RecordLiteralExpression") and catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis", "UnaryExpression") or parseExpression()) --[[@as Expression]]
 					declarations[#declarations + 1] = { kindof = "AssignmentExpression", left = left, operator = "=", right = right }
 					if not suppose "Comma" then
 						break
@@ -362,17 +365,22 @@ function parseStatement ()
 				expect("Missing '}'", "RightBrace")
 				while current.typeof ~= "End" do
 					local last, statement = current.line, catch("syntax error", parseStatement, "Comment", "VariableDeclaration", "FunctionDeclaration") --[[@as Comment|VariableDeclaration|FunctionDeclaration]]
-					if statement.kindof == "FunctionDeclaration" and statement.name.value == "constructor" then
-						if parent then
-							local firstStatement = statement.body[1] ---@type CallExpression
-							if not (firstStatement and firstStatement.kindof == "CallExpression" and firstStatement.caller.value == "super") then
-								throw("'super' call required inside extended prototype constructor", last)
+					if statement.kindof == "FunctionDeclaration" then
+						if statement.name.kindof ~= "Identifier" then
+							throw("syntax error, <name> expected", last)
+						end
+						if statement.name.value == "constructor" then
+							if parent then
+								local firstStatement = statement.body[1] ---@type CallExpression
+								if not (firstStatement and firstStatement.kindof == "CallExpression" and firstStatement.caller.value == "super") then
+									throw("'super' call required inside extended prototype constructor", last)
+								end
 							end
+							if decorations and decorations["abstract"] then
+								throw("prototype is abstract, no constructor implementations are allowed", last)	
+							end
+							constructor = constructor and throw("multiple constructor implementations are not allowed", last) or true
 						end
-						if decorations and decorations["abstract"] then
-							throw("prototype is abstract, no constructor implementations are allowed", last)	
-						end
-						constructor = constructor and throw("multiple constructor implementations are not allowed", last) or true
 					end
 					body[#body + 1] = statement
 				end
@@ -458,7 +466,7 @@ function parseStatement ()
 					elseif left.kindof == "RecordLiteralExpression" then
 						operator, right = expect("'=' expected", "Equal"), catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis")
 					elseif left.kindof == "MemberExpression" or left.kindof == "Identifier" then
-						operator, right = expect("'=' expected", "Equal", "MinusEqual", "PlusEqual", "AsteriskEqual", "SlashEqual", "CircumflexEqual", "PercentEqual"), parseExpression()
+						operator, right = expect("'=' expected", "Equal", "MinusEqual", "PlusEqual", "AsteriskEqual", "SlashEqual", "CircumflexEqual", "PercentEqual", "ConcatEqual"), parseExpression()
 					else
 						throw("syntax error near '" .. last .. "'")
 					end
