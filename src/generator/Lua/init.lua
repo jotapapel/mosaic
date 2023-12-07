@@ -8,11 +8,14 @@ local output, exports ---@type string[], table<string, string>
 ---@param level number The indent level of the final structure.
 ---@return string #The final structure.
 local function generate (head, body, footer, level)
-	local output = { head }
-	for _, element in ipairs(body) do
-		output[#output + 1] = element and (string.rep("\t", level + 1) .. element) or nil
+	local parts = { head }
+	for index = 1, #body do
+		local element = body[index]
+		if type(element) == "string" then
+			parts[#parts + 1] = string.rep("\t", level + 1) .. element
+		end
 	end
-	return table.concat(output, "\n") .. "\n" .. string.rep("\t", level) .. footer
+	return table.concat(parts, "\n") .. "\n" .. string.rep("\t", level) .. footer
 end
 
 --- Iterate a table with the desired function and return the result in a new table, maintaining the indexes.
@@ -158,8 +161,9 @@ function generateStatement(node, level)
 	-- PrototypeDeclaration
 	elseif kindof == "PrototypeDeclaration" then
 		local name, parent, storage = generateExpression(node.name), node.parent and generateExpression(node.parent), ((node.decorations and node.decorations["global"]) or (node.name.kindof == "MemberExpression") or not(node.name)) and "" or "local "
-		local internal, body, variables, functions = string.gsub(name --[[@as string]],"%.", ""), {}, {}, {} ---@type string, string[], string[], string[]
-		local parameters, constructor = {}, {}
+		local internalName, internalParent = string.gsub(name --[[@as string]],"%.", ""), node.parent and string.gsub(parent --[[@as string]],"%.", "")
+		local body, variables, functions = {}, {}, {} ---@type string, string[], string[], string[]
+		local parameters, constructor, arguments = {}, {}, nil
 		for index, statement in ipairs(node.body) do
 			if statement.kindof == "Comment" then
 				local adjacent = node.body[index + 1]
@@ -174,13 +178,12 @@ function generateStatement(node, level)
 					parameters = map(statement.parameters, generateExpression)
 					for statementIndex, statementStatement in ipairs(statement.body) do
 						if statementIndex == 1 and parent then
-							local arguments = {}
-							for innerStatementIndex, argument in ipairs(statementStatement.arguments) do
-								arguments[innerStatementIndex] = generateExpression(argument)
+							arguments = {}
+							for _, argument in ipairs(statementStatement.arguments) do
+								arguments[#arguments + 1] = generateExpression(argument)
 							end
-							constructor[#constructor + 1] = string.format("local self = setmetatable(%s, { __index = %s })", parent and string.format("%s(%s)", parent, table.concat(arguments, ", ")) or "{}", name)
 						else
-							constructor[#constructor + 1] = generateStatement(statementStatement, level + 2)
+							constructor[#constructor + 1] = generateStatement(statementStatement, level + 3)
 						end
 					end
 				else
@@ -191,7 +194,7 @@ function generateStatement(node, level)
 							innerStatement.caller.record.value, innerStatement.arguments[1] = parent, { kindof = "Identifier", value = "self" }
 						end
 					end
-					functions[#functions + 1] = generateStatement({ kindof = "VariableDeclaration", declarations = { { kindof = "AssignmentExpression", left = isPrivate and functionName or { kindof = "MemberExpression", record = { kindof = "Identifier", value = internal }, property = functionName, computed = false }, operator = "=", right = { kindof = "FunctionExpression", parameters = functionParameters, body = statement.body --[=[@as BlockStatement[]]=] } } }, decorations = { ["global"] = not(isPrivate) } }, level + 1)
+					functions[#functions + 1] = generateStatement({ kindof = "VariableDeclaration", declarations = { { kindof = "AssignmentExpression", left = isPrivate and functionName or { kindof = "MemberExpression", record = { kindof = "Identifier", value = internalName }, property = functionName, computed = false }, operator = "=", right = { kindof = "FunctionExpression", parameters = functionParameters, body = statement.body --[=[@as BlockStatement[]]=] } } }, decorations = { ["global"] = not(isPrivate) } }, level + 1)
 				end
 			elseif statement.kindof == "VariableDeclaration" then
 				statement.decorations = { ["global"] = true }
@@ -201,30 +204,32 @@ function generateStatement(node, level)
 				variables[#variables + 1] = generateStatement(statement)
 			end
 		end
-		return storage .. generate(string.format("%s = (function (%s)", name, parent or ""), {
-			generate(string.format("local %s = setmetatable({}, {", internal), {
-				generate(string.format("__call = function(%s%s)", internal, (parent and (#parameters == 0)) and ", ..." or string.format(#parameters > 0 and ", %s" or "%s", table.concat(parameters, ", "))), {
-					string.format("%s setmetatable(%s, { __index = %s })", (#constructor == 0 and #variables == 0) and "return" or "local self =", parent and string.format("%s(...)", parent) or "{}", internal),
-					(#variables > 0) and table.concat(variables, "\n" .. string.rep("\t", 3)),
-					(#constructor > 0) and table.concat(constructor, "\n" .. string.rep("\t", 3)),
+		return storage .. generate(string.format("%s = (function (%s)", name, internalParent or ""), {
+			generate(string.format("local %s = setmetatable({}, {", internalName), {
+				parent and string.format("__index = %s,", internalParent),
+				generate(string.format("__call = function(%s%s)", internalName, (parent and (#parameters == 0)) and ", ..." or string.format(#parameters > 0 and ", %s" or "%s", table.concat(parameters, ", "))), {
+					parent and string.format("local self = %s(%s)", parent, arguments and table.concat(arguments, ", ") or "...") or string.format("%s setmetatable({}, { __index = %s })", (#constructor == 0 and #variables == 0) and "return" or "local self =", internalName),
+					parent and string.format("getmetatable(self).__index = %s", internalName),
+					(#variables > 0) and table.concat(variables, "\n" .. string.rep("\t", level + 3)),
+					(#constructor > 0) and table.concat(constructor, "\n" .. string.rep("\t", level + 3)),
 					(#constructor > 0 or #variables > 0) and "return self"
 				}, "end", level + 2)
 			}, "})", level + 1),
-			(#functions > 0) and table.concat(functions, "\n" .. string.rep("\t", 1)),
-			string.format("return %s", internal)
+			(#functions > 0) and table.concat(functions, "\n" .. string.rep("\t", level + 1)),
+			string.format("return %s", internalName)
 		}, string.format("end)(%s)", parent or ""), level)
 	elseif kindof == "IfStatement" then
-		local output, latest = "if", node ---@type string, IfStatement?
+		local block, latest = "if", node ---@type string, IfStatement?
 		while latest do
 			repeat
 				local head, body = latest.test and generateExpression(latest.test), {} ---@type string?, string[]
 				for index, statement in ipairs(latest.consequent or latest) do
 					body[index] = generateStatement(statement, level + 1)
 				end
-				output, latest = output .. generate(string.format(head and " %s then" or "else", head or ""), body, "", level) .. ((latest.alternate and latest.alternate.test) and "elseif" or ""), latest.alternate
+				block, latest = block .. generate(string.format(head and " %s then" or "else", head or ""), body, "", level) .. ((latest.alternate and latest.alternate.test) and "elseif" or ""), latest.alternate
 			until not latest
 		end
-		return output .. "end"
+		return block .. "end"
 	elseif kindof == "WhileLoop" then
 		local condition, body = generateExpression(node.condition), {} ---@type string, string[]
 		for index, statement in ipairs(node.body) do
@@ -268,7 +273,7 @@ function generateStatement(node, level)
 	end
 end
 
---- Generates source code in Lua based off an AST produced by the parser.
+--- Generates valid Lua code from an AST definition.
 ---@param ast AST The abstract syntax tree.
 ---@param level? integer Level of indentation to use.
 ---@return string #The output source code.

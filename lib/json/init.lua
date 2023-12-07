@@ -127,7 +127,7 @@ local function suppose (...)
 	end
 end
 
----@return string|number|boolean|nil
+---@return JSONValue
 local function decodeLiteral ()
 	local typeof, value = consume()
 	-- Booleans
@@ -165,7 +165,7 @@ local function decodeArray ()
 		expect("']' expected", "RightBracket")
 		return tbl
 	end
-	return decodeLiteral() --[[@as JSONValue]]
+	return decodeLiteral()
 end
 
 ---@return table<string, JSONValue>
@@ -184,7 +184,7 @@ local function decodeObject ()
 		expect("'}' expected", "RightBrace")
 		return tbl
 	end
-	return decodeArray() --[[@as JSONValue]]
+	return decodeArray()
 end
 
 ---@return JSONValue
@@ -262,6 +262,7 @@ return {
 ---@field value string Lexeme value.
 ---@field line integer Lexeme line number.
 ---@field startIndex? integer
+
 ---@alias JSONLexicalScanner fun(): string?, string, integer, integer?
 ---@alias JSONParser<T> fun(): T?
----@alias JSONValue table<string, JSONValue>|JSONValue[]|boolean|number|string
+---@alias JSONValue table<string, JSONValue>|JSONValue[]|boolean|number|string|nil

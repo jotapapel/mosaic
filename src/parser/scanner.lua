@@ -175,6 +175,8 @@ return function (source)
 						typeof = "Bang"
 					elseif char == "@" then
 						typeof = "At"
+					elseif char == "?" then
+						typeof = "Question"
 					end
 				end
 				-- unknown characters
