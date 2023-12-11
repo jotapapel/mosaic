@@ -44,11 +44,12 @@ end
 --- Iterate a table with the desired function and return the result in a new table, maintaining the indexes.
 ---@param tbl table The table to iterate.
 ---@param func function The function to use.
+---@param ... any Optional parameters to pass on to the table (after the value found)
 ---@return table #The resulting table.
-local function map (tbl, func)
+local function map (tbl, func, ...)
 	local result = {}
 	for index, value in ipairs(tbl) do
-		result[index] = func(value)
+		result[index] = func(value, ...)
 	end
 	return result
 end
@@ -61,7 +62,7 @@ function generateExpression(node, level)
 	level = level or 0
 	local kindof = node.kindof
 	if kindof == "UnaryExpression" then
-		local operator, argument = node.operator, generateExpression(node.argument)
+		local operator, argument = node.operator, generateExpression(node.argument, level)
 		if operator == "!" then
 			return string.format("not(%s)", argument)
 		elseif operator == "$" then
@@ -82,16 +83,16 @@ function generateExpression(node, level)
 	elseif kindof == "Undefined" then
 		return "nil"
 	elseif kindof == "MemberExpression" then
-		local pattern, record, property = node.computed and "%s[%s]" or "%s.%s", generateExpression(node.record), generateExpression(node.property)
+		local pattern, record, property = node.computed and "%s[%s]" or "%s.%s", generateExpression(node.record, level), generateExpression(node.property, level)
 		return string.format(pattern, record, property)
 	elseif kindof == "CallExpression" then
-		local caller, arguments = generateExpression(node.caller), {} ---@type string, string[]
+		local caller, arguments = generateExpression(node.caller, level), {} ---@type string, string[]
 		for index, argument in ipairs(node.arguments) do
-			arguments[index] = generateExpression(argument, level + 1)
+			arguments[index] = generateExpression(argument, level)
 		end
 		return string.format("%s(%s)", caller, table.concat(arguments, ", "))
 	elseif kindof == "NewExpression" then
-		local prototype, arguments = generateExpression(node.prototype), {}
+		local prototype, arguments = generateExpression(node.prototype, level), {}
 		for index, argument in ipairs(node.arguments) do
 			arguments[index] = generateExpression(argument, level)
 		end
@@ -122,12 +123,12 @@ function generateExpression(node, level)
 		end
 		return string.format(#parts > 0 and "{ %s }" or "{}", table.concat(parts, ", "))
 	elseif kindof == "FunctionExpression" then
-		local parameters = map(node.parameters, generateExpression) ---@type string[]
+		local parameters = map(node.parameters, generateExpression, level) ---@type string[]
 		local body = {} ---@type string[]
 		for _, statement in ipairs(node.body) do
 			body[#body + 1] = generateStatement(statement, level)
 		end
-		return generate(string.format("function (%s)", table.concat(parameters, ", ")), body, "end", level)
+		return generate(string.format("function (%s)", table.concat(parameters, ", ")), body, "end", level - 1)
 	elseif kindof == "ParenthesizedExpression" then
 		local inner = generateExpression(node.node, level)
 		return string.format("(%s)", inner)
@@ -148,7 +149,7 @@ function generateStatement(node, level)
 		return table.concat(content, "\n" .. string.rep("\t", level))
 	-- ImportDeclaration
 	elseif kindof == "ImportDeclaration" then
-		local location = generateExpression(node.location):match("^\"(.-)\"$")
+		local location = generateExpression(node.location, level):match("^\"(.-)\"$")
 		local internal = string.format("__%s", location:match("/(.-)%."):gsub("/", "_"))
 		if node.names.kindof then
 			exports[node.names.value] = string.format("%s.default", internal)
@@ -162,7 +163,7 @@ function generateStatement(node, level)
 	elseif kindof == "VariableDeclaration" then
 		local lefts, rights, storage = {}, {}, (node.decorations and node.decorations["global"]) and "" or "local " ---@type string[], string[], string
 		for index, declaration in ipairs(node.declarations) do
-			local left, right = generateExpression(declaration.left) --[[@as string]], declaration.right and generateExpression(declaration.right, level) --[[@as string]] or "nil"
+			local left, right = generateExpression(declaration.left, level) --[[@as string]], declaration.right and generateExpression(declaration.right, level + 1) --[[@as string]] or "nil"
 			if declaration.left.kindof == "RecordLiteralExpression" then
 				left, right = left:match("^{%s*(.-)%s*}$"), ((right == "...") or declaration.right.kindof == "UnaryExpression") and right or string.format("table.unpack(%s)", right)
 			end
@@ -171,7 +172,7 @@ function generateStatement(node, level)
 		return storage .. string.format("%s = %s", table.concat(lefts, ', '), table.concat(rights, ', '))
 	-- FunctionDeclaration
 	elseif kindof == "FunctionDeclaration" then
-		local name, parameters = generateExpression(node.name), map(node.parameters, generateExpression) ---@type string, string[]
+		local name, parameters = generateExpression(node.name, level), map(node.parameters, generateExpression, level) ---@type string, string[]
 		local storage = ((node.decorations and node.decorations["global"]) or (node.name.kindof == "MemberExpression") or not(node.name)) and "" or "local "
 		local body = {} ---@type string[]
 		for _, statement in ipairs(node.body) do
@@ -180,11 +181,11 @@ function generateStatement(node, level)
 		return generate(string.format("%sfunction %s (%s)", storage, name, table.concat(parameters, ", ")), body, "end", level)
 	-- ReturnStatement
 	elseif kindof == "ReturnStatement" then
-		local arguments = map(node.arguments, generateExpression) ---@type string[]
+		local arguments = map(node.arguments, generateExpression, level) ---@type string[]
 		return string.format("return %s", table.concat(arguments, ", "))
 	-- PrototypeDeclaration
 	elseif kindof == "PrototypeDeclaration" then
-		local name, parent = generateExpression(node.name):gsub("%.", "_"), node.parent and generateExpression(node.parent):gsub("%.", "_")
+		local name, parent = generateExpression(node.name):gsub("%.", "_"), node.parent and generateExpression(node.parent, level):gsub("%.", "_", level)
 		local constructorParameters, constructorBody = {}, {} ---@type Identifier[], (Comment|VariableDeclaration|VariableAssignment|FunctionDeclaration)[]
 		local prototypeVariables, prototypeFunctions = {}, {} ---@type BlockStatement[], BlockStatement[]
 		local constructorComment, constructorNodeHead ---@type Comment?, ReturnStatement|VariableDeclaration
@@ -356,7 +357,7 @@ function generateStatement(node, level)
 							{
 								kindof = "RecordLiteralExpression",
 								elements = {}
-							}, 
+							},
 							{
 								kindof = "RecordLiteralExpression",
 								elements = {
@@ -534,7 +535,7 @@ function generateStatement(node, level)
 		local block, latest = "if", node ---@type string, IfStatement?
 		while latest do
 			repeat
-				local head, body = latest.test and generateExpression(latest.test), {} ---@type string?, string[]
+				local head, body = latest.test and generateExpression(latest.test, level), {} ---@type string?, string[]
 				for index, statement in ipairs(latest.consequent or latest) do
 					body[index] = generateStatement(statement, level + 1)
 				end
@@ -543,7 +544,7 @@ function generateStatement(node, level)
 		end
 		return block .. "end"
 	elseif kindof == "WhileLoop" then
-		local condition, body = generateExpression(node.condition), {} ---@type string, string[]
+		local condition, body = generateExpression(node.condition, level), {} ---@type string, string[]
 		for index, statement in ipairs(node.body) do
 			body[index] = generateStatement(statement, level + 1)
 		end
@@ -554,13 +555,13 @@ function generateStatement(node, level)
 		local head ---@type string
 		local body = {} ---@type string[]
 		if node.condition.init then
-			head = string.format("%s, %s%s", generateExpression(node.condition.init --[[@as Expression]]), generateExpression(node.condition.goal), node.condition.step and string.format(", %s", generateExpression(node.condition.step)) or "")
+			head = string.format("%s, %s%s", generateExpression(node.condition.init --[[@as Expression]]), generateExpression(node.condition.goal, level), node.condition.step and string.format(", %s", generateExpression(node.condition.step, level)) or "")
 		else
 			local variables = {}
 			for index, variable in ipairs(node.condition.variable) do
-				variables[index] = generateExpression(variable)
+				variables[index] = generateExpression(variable, level)
 			end
-			head = string.format("%s in %s", table.concat(variables, ", "), generateExpression(node.condition.iterable))
+			head = string.format("%s in %s", table.concat(variables, ", "), generateExpression(node.condition.iterable, level))
 		end
 		for index, statement in ipairs(node.body) do
 			body[index] = generateStatement(statement, level + 1)
@@ -569,7 +570,7 @@ function generateStatement(node, level)
 	elseif kindof == "VariableAssignment" then
 		local lefts, rights = {}, {} ---@type string[], string[]
 		for index, assignment in ipairs(node.assignments) do
-			local left, right = generateExpression(assignment.left) --[[@as string]], generateExpression(assignment.right, level + 1) --[[@as string]]
+			local left, right = generateExpression(assignment.left, level) --[[@as string]], generateExpression(assignment.right, level + 1) --[[@as string]]
 			local complexOperator = assignment.operator:sub(1, 1):match("[%-%+%*//%^%%]") or (assignment.operator:sub(1, 2) == ".." and "..")
 			if assignment.left.kindof == "RecordLiteralExpression" then
 				left, right = left:match("^{%s*(.-)%s*}$"), (right == "...") and right or string.format("table.unpack(%s)", right)
