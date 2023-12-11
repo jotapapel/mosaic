@@ -1,16 +1,223 @@
-local scan = require "src.parser.scanner"
 local json = require "lib.json"
 
 local parseMemberExpression, parseNewCallMemberExpression ---@type Parser<MemberExpression|Term>, Parser<CallExpression|NewExpression|MemberExpression>
 local parseExpression, parseStatement ---@type Parser<Expression>, Parser<StatementExpression, boolean>
-local current, pop, peek ---@type Lexeme, LexicalScanner, LexicalScanner
-local escapedCharacters <const> = { [116] = "\\t", [92] = "\\\\", [34] = "\\\"", [98] = "\\b", [102] = "\\f", [110] = "\\n", [114] = "\\r", [39] = "\\\'" }
+local path, current, pop, peek ---@type string, Lexeme, LexicalScanner, LexicalScanner
+
+---@type table<string, boolean>
+local keywords <const> = {
+	["and"] = true, ["or"] = true, ["is"] = true,
+	["var"] = true,
+	["function"] = true, ["return"] = true,
+	["prototype"] = true,
+	["if"] = true, ["then"] = true, ["elseif"] = true, ["else"] = true,
+	["while"] = true, ["do"] = true, ["break"] = true,
+	["for"] = true, ["to"] = true, ["step"] = true, ["in"] = true,
+	["end"] = true,
+	["import"] = true, ["from"] = true
+}
+
+---@type table<integer, string>
+local escapedCharacters <const> = {
+	[116] = "\\t", [92] = "\\\\",
+	[34] = "\\\"", [98] = "\\b",
+	[102] = "\\f", [110] = "\\n",
+	[114] = "\\r", [39] = "\\\'" 
+}
 
 --- Throw a local error.
 ---@param message string The error message.
 local function throw (message, line)
-	io.write("<mosaic> ", line or current.line, ": ", message, ".\n")
+	io.write(string.format("[%s]", path), " <mosaic> ", line or current.line, ": ", message, ".\n")
 	os.exit()
+end
+
+--- Source code tokenizer.
+---@param source string The raw source.
+---@return Lexeme
+---@return LexicalScanner
+---@return LexicalScanner
+local function scan (source)
+	source = source:gsub("\\(.)", function (c) return string.format("\\%03d", string.byte(c)) end)
+	local index, lineIndex, len = 1, 1, source:len()
+	local function tokenize ()
+		while index <= len do
+			repeat
+				local typeof, fromIndex, toIndex ---@type string?, integer?, integer?
+				local char, lastIndex = source:sub(index, index), index
+				-- whitespace
+				if char:match("%s") then
+					index = index + 1
+					if char == "\n" then
+						lineIndex = lineIndex + 1
+					end
+					break
+				-- comments
+				elseif char == "-" then
+					typeof, index = "Minus", index + 1
+					if source:sub(index, index) == "-" then
+						typeof, index = "Comment", index + 1
+						while index <= len and source:sub(index, index):match("[^\n]") do
+							index = index + 1
+						end
+						fromIndex = lastIndex + 2
+					elseif source:sub(index, index) == "=" then
+						typeof, index = "MinusEqual", index + 1
+					end
+				-- identifiers
+				elseif char:match("[_%a]") then
+					typeof = "Identifier"
+					while index <= len and source:sub(index, index):match("[_%w]") do
+						index = index + 1
+					end
+					local value = source:sub(lastIndex, index - 1)
+					if value == "true" or value == "false" then
+						typeof = "Boolean"
+					elseif value == "undef" then
+						typeof = "Undefined"
+					elseif keywords[value] then
+						typeof = value:gsub("^%l", string.upper)
+					end
+				-- numbers
+				elseif char:match("%d") then
+					typeof = "Number"
+					while index <= len and source:sub(index, index):match("%d") do
+						index = index + 1
+					end
+					if source:sub(index, index) == "." then
+						index = index + 1
+						if source:sub(index, index):match("[^%d]") then
+							throw("malformed number near '" .. source:sub(fromIndex or lastIndex, toIndex or index) .. "'")
+						end
+						while index <= len and source:sub(index, index):match("%d") do
+							index = index + 1
+						end
+					end
+				elseif char == "&" and source:sub(index + 1, index + 1):match("[a-fA-F0-9]") then
+					typeof, index, fromIndex = "Hexadecimal", index + 1, index + 1
+					while index <= len and source:sub(index, index):match("[a-fA-F0-9]") do
+						index = index + 1
+					end
+				-- strings
+				elseif char:match('"') then
+					typeof, index, fromIndex = "String", index + 1, index + 1
+					while index <= len and source:sub(index, index):match('[^"\n]') do
+						index = index + 1
+					end
+					index, toIndex = index + 1, index
+				elseif char:match("'") then
+					typeof, index, fromIndex = "String", index + 1, index + 1
+					while index <= len and source:sub(index, index):match("[^'\n]") do
+						index = index + 1
+					end
+					index, toIndex = index + 1, index
+				-- characters
+				elseif char:match("%p") then
+					index = index + 1
+					local adjacent = source:sub(index, index)
+					if char == "+" then
+						typeof = "Plus"
+						if adjacent == "=" then
+							typeof, index = "PlusEqual", index + 1
+						end
+					elseif char == "*" then
+						typeof = "Asterisk"
+						if adjacent == "=" then
+							typeof, index = "AsteriskEqual", index + 1
+						end
+					elseif char == "/" then
+						typeof = "Slash"
+						if adjacent == "=" then
+							typeof, index = "SlashEqual", index + 1
+						end
+					elseif char == "^" then
+						typeof = "Circumflex"
+						if adjacent == "=" then
+							typeof, index = "CircumflexEqual", index + 1
+						end
+					elseif char == "%" then
+						typeof = "Percent"
+						if adjacent == "=" then
+							typeof, index = "PercentEqual", index + 1
+						end
+					elseif char == ">" then
+						typeof = "Greater"
+						if adjacent == "=" then
+							typeof, index = "GreaterEqual", index + 1
+						end
+					elseif char == "<" then
+						typeof = "Less"
+						if adjacent == ">" then
+							typeof, index = "NotEqual", index + 1
+						elseif adjacent == "=" then
+							typeof, index = "LessEqual", index + 1
+						end
+					elseif char == "=" then
+						typeof = "Equal"
+						if adjacent == "=" then
+							typeof, index = "IsEqual", index + 1
+						end
+					elseif char == "(" then
+						typeof = "LeftParenthesis"
+					elseif char == "{" then
+						typeof = "LeftBrace"
+					elseif char == "[" then
+						typeof = "LeftBracket"
+					elseif char == "]" then
+						typeof = "RightBracket"
+					elseif char == "}" then
+						typeof = "RightBrace"
+					elseif char == ")" then
+						typeof = "RightParenthesis"
+					elseif char == "." then
+						typeof = "Dot"
+						if adjacent:match("%d") then
+							typeof, index = "Number", index + 1
+							while index <= len and source:sub(index, index):match("%d") do
+								index = index + 1
+							end
+						elseif adjacent == "." and source:sub(index, index + 1) ~= ".." then
+							if source:sub(index + 1, index + 1) == "=" then
+								typeof, index = "ConcatEqual", index + 2
+							else
+								typeof, index = "Concat", index + 1
+							end
+						elseif source:sub(index, index + 1) == ".." then
+							typeof, index = "Ellipsis", index + 2
+						end
+					elseif char == "," then
+						typeof = "Comma"
+					elseif char == ":" then
+						typeof = "Colon"
+					elseif char == ";" then
+						typeof = "Semicolon"
+					elseif char == "#" then
+						typeof = "Pound"
+					elseif char == "$" then
+						typeof = "Dollar"
+					elseif char == "!" then
+						typeof = "Bang"
+					elseif char == "@" then
+						typeof = "At"
+					elseif char == "?" then
+						typeof = "Question"
+					end
+				end
+				-- unknown characters
+				if not typeof then
+					throw("unknown character found at source")
+				end
+				return typeof, source:sub(fromIndex or lastIndex, (toIndex or index) - 1), lineIndex, lastIndex
+			until true
+		end
+	end
+	return { value = "", line = 0 }, tokenize, function ()
+		local typeof, value, line, last = tokenize()
+		if last then
+			index = last
+		end
+		return typeof, value or "<eof>", line or lineIndex
+	end
 end
 
 --- Move on to the next lexeme, store the current one in the 'current' table.
@@ -75,9 +282,6 @@ local function parseTerm ()
 		return { kindof = "StringLiteral", value = value }
 	-- NumberLiteral
 	elseif typeof == "Number" then
-		if current.typeof then
-			throw("malfomed number near '" .. tostring(value) .. current.value .. "'")
-		end
 		return { kindof = "NumberLiteral", value = tonumber(value) }
 	elseif typeof == "Hexadecimal" then
 		return { kindof = "NumberLiteral", value = tonumber(value, 16) }
@@ -155,7 +359,7 @@ end
 ---@return CallExpression|NewExpression|MemberExpression
 function parseNewCallMemberExpression()
 	local member = parseMemberExpression()
-	if member.kindof == "Identifier" or member.kindof == "MemberExpression" then
+	if member.kindof == "Identifier" or member.kindof == "MemberExpression" or member.kindof == "ParenthesizedExpression" then
 		if suppose "LeftBrace" then
 			return parseNewExpression(member)
 		elseif current.typeof == "LeftParenthesis" then
@@ -346,7 +550,7 @@ function parseStatement ()
 				end
 				return { kindof = "ReturnStatement", arguments = arguments }
 			-- PrototypeDeclaration
-			elseif typeof == "Prototype" then
+			elseif typeof == "__Prototype" then
 				consume()
 				local body, constructor = {}, false ---@type (Comment|VariableDeclaration|FunctionDeclaration)[], boolean
 				local name = catch("<name> expected", parseMemberExpression, "Identifier", exportable or "MemberExpression") --[[@as Expression]]
@@ -373,6 +577,73 @@ function parseStatement ()
 						end
 					end
 					body[#body + 1] = statement
+				end
+				expect("'end' expected " .. string.format((current.line > line) and "(to close 'prototype' at line %s)" or "", line), "End")
+				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }, exportable
+			elseif typeof == "Prototype" then
+				consume()
+				local name = catch("<name> expected", parseMemberExpression, "Identifier", exportable or "MemberExpression") --[[@as Expression]]
+				local hasConstructor, body = false, {} ---@type boolean, (Comment|VariableDeclaration|VariableAssignment|FunctionDeclaration)[]
+				expect("Missing '{' after <name>", "LeftBrace")
+				local parent = (current.typeof ~= "RightBrace") and parseExpression() or nil ---@type Expression?
+				expect("Missing '}'", "RightBrace")
+				while current.typeof ~= "End" do
+					local lastLine = current.line
+					local statement = catch("syntax error", parseStatement, "Comment", "VariableDeclaration", "VariableAssignment", "FunctionDeclaration") --[[@as Comment|VariableDeclaration|VariableAssignment|FunctionDeclaration]]
+					-- catch function and variable names
+					if statement.kindof == "VariableAssignment" or statement.kindof == "FunctionDeclaration" then
+						if statement.name.kindof ~= "Identifier" then
+							throw("<name> expected", lastLine)
+						end
+						if statement.kindof == "FunctionDeclaration" then
+							if statement.name.value == "constructor" then
+								-- catch 'super' call
+								if parent then
+									local firstInnerStatement = statement.body[1] --[[@as CallExpression]]
+									if not (firstInnerStatement and firstInnerStatement.kindof == "CallExpression" and firstInnerStatement.caller.value == "super") then
+										throw("'super' call required inside child prototype constructor", lastLine)
+									end
+								end
+								-- catch abstract prototype
+								if decorations and decorations["abstract"] then
+									throw("abstract prototypes don't allow constructor implementations", lastLine)
+								end
+								-- catch multiple constructor implementations
+								hasConstructor = hasConstructor and throw("multiple constructor implementations are not allowed", lastLine)
+							end
+						end
+					end
+					body[#body + 1] = statement
+				end
+				if not hasConstructor and parent then
+					table.insert(body, 1, {
+						kindof = "FunctionDeclaration",
+						name = {
+							kindof = "Identifier",
+							value = "constructor"
+						},
+						parameters = {
+							{
+								kindof = "Ellipsis",
+								value = "..."
+							}
+						},
+						body = {
+							{
+								kindof = "CallExpression",
+								caller = {
+									kindof = "Identifier",
+									value = "super"
+								},
+								arguments = {
+									{
+										kindof = "Identifier",
+										value = "..."
+									}
+								}
+							}
+						}
+					})
 				end
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'prototype' at line %s)" or "", line), "End")
 				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }, exportable
@@ -474,12 +745,14 @@ function parseStatement ()
 end
 
 --- Generates an AST from a raw source.
----@param source string The raw source.
+---@param location string The filename to parse.
 ---@param kindof string The AST kind.
 ---@return AST #The AST table.
-return function (source, kindof)
+return function (location, kindof)
+	local file <close> = io.open(location) or error("Source file not found.")
+	local source = file:read("*a")
 	local ast, exports = { kindof = kindof, body = {} }, {} ---@type AST, table<string, true>
-	current, pop, peek = scan(source)
+	path, current, pop, peek = location, scan(source)
 	current.typeof, current.value, current.line = peek()
 	while current.typeof do
 		local statement, exportable = parseStatement()
@@ -515,5 +788,12 @@ return function (source, kindof)
 	return ast
 end
 
+---@class Lexeme
+---@field typeof? string Lexeme type.
+---@field value string Lexeme value.
+---@field line integer Lexeme line number.
+---@field startIndex? integer
+
+---@alias LexicalScanner fun(): string?, string, integer, integer?
 ---@alias Parser<P, Q> fun(): P?, Q?
 ---@alias AST { kindof: "Program"|"Module", body: StatementExpression[], exports: table<string, boolean> }

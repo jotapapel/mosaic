@@ -13,7 +13,7 @@ local function toabsolute (relativePath)
 			parts[#parts + 1] = part
 		end
 	end
-    return table.concat(parts, "/")
+    return "./" .. table.concat(parts, "/")
 end
 
 --- Takes multiple path components as arguments and concatenates them into a single path.
@@ -40,11 +40,11 @@ local function getdir (path)
 end
 
 --- Returns the filename of a path.
----@param filepath string The path to use.
----@param extension? boolean Whether to append the file extension.
+---@param path string The path to use.
+---@param name? boolean Return the name only, without the extension.
 ---@return string #The filename.
-local function filename (filepath, extension)
-	return filepath:match("/?(.-)" .. (extension and "" or "%..-") .. "$")
+local function filename (path, name)
+    return path:match("/?([^/]+)" .. (name and "%." or "$"))
 end
 
 --- Simple filesystem library.

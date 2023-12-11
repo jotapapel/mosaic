@@ -1,1 +1,19 @@
-var a = 9.b
+prototype Parent {}
+	-- parent constructor
+	function constructor (name)
+		self.name = name
+	end
+	function greet ()
+		print(self.name)
+	end
+end
+
+prototype Child {Parent}
+	function greet ()
+		print("Hello")
+		super("HELLO")
+	end
+end
+
+var firstChild = Child{"José"}
+firstChild:greet()

@@ -1,18 +1,17 @@
+local fs = require "lib.fs"
 local json = require "lib.json"
 local parse = require "src.parser"
 local generate = require "src.generator.Lua"
 
-local name, target, option = ...
-local file <close> = io.open(name) or error("Source file not found.")
-local source = file:read("*a")
-
-local ast = parse(source, "Program")
+local path, option, display = ...
+local ast = parse(path, "Program")
 local output = (option == "--ast") and json.encode(ast, true) or generate(ast)
 
-if target == "--display" then
+if option == "--display" or display == "--display" then
 	io.write(output, "\n")
 	os.exit()
 else
-	local outfile <const>, err = io.open(target, "w+") --[[@as file*]]
+	local outpath = fs.toabsolute(path):match("^(.-)%.tle$") .. ((option == "--ast") and ".json" or ".lua")
+	local outfile <const>, err = io.open(outpath, "w+") --[[@as file*]]
 	outfile:write(output)
 end
