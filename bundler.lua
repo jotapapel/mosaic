@@ -34,9 +34,9 @@ local function createGraph (entry)
 		for _, relativePath in ipairs(asset.dependencies) do
 			local absolutePath = fs.toabsolute(fs.join(dirname, relativePath))
 			local child = createAsset(absolutePath, "Module", #queue, entry)
-			asset.mapping[relativePath] = mainDependencies[relativePath] or child.id
-			if not mainDependencies[relativePath] then
-				queue[#queue + 1], mainDependencies[relativePath] = child, child.id
+			asset.mapping[relativePath] = mainDependencies[absolutePath] or child.id
+			if not mainDependencies[absolutePath] then
+				queue[#queue + 1], mainDependencies[absolutePath] = child, child.id
 			end
 		end
 	end
