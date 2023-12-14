@@ -7,7 +7,7 @@ local generate = require "src.generator.Lua"
 ---@param kindof "Program"|"Module"
 ---@param id integer
 ---@return FileBundle
-local function createAsset (location, kindof, id)
+local function createAsset (location, kindof, id, entry)
 	local ast, dependencies = parse(location, kindof), {} ---@type AST, string[]
 	for _, node in ipairs(ast.body) do
 		if node.kindof == "ImportDeclaration" then
@@ -32,8 +32,8 @@ local function createGraph (entry)
 		asset.mapping = {}
 		local dirname = fs.getdir(asset.location)
 		for _, relativePath in ipairs(asset.dependencies) do
-			local absolutePath = fs.join(dirname, relativePath)
-			local child = createAsset(absolutePath, "Module", #queue)
+			local absolutePath = fs.toabsolute(fs.join(dirname, relativePath))
+			local child = createAsset(absolutePath, "Module", #queue, entry)
 			asset.mapping[relativePath] = mainDependencies[relativePath] or child.id
 			if not mainDependencies[relativePath] then
 				queue[#queue + 1], mainDependencies[relativePath] = child, child.id

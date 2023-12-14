@@ -294,9 +294,9 @@ local function parseTerm ()
 	-- Ellipsis
 	elseif typeof == "Ellipsis" then
 		if current.typeof == "Identifier" then
-			return { kindof = "UnaryExpression", operator = "...", argument = parseMemberExpression() }
+			return { kindof = "UnaryExpression", operator = "...", argument = parseMemberExpression() --[[@as Expression]] }
 		end
-		return { kindof = "Ellipsis", value = value }
+		return { kindof = "Ellipsis" }
 	-- ParenthesizedExpression
 	elseif typeof == "LeftParenthesis" then
 		local node = parseExpression() --[[@as Expression]]
@@ -365,14 +365,10 @@ function parseNewCallMemberExpression()
 		elseif current.typeof == "LeftParenthesis" then
 			return parseCallExpression(member)
 		elseif suppose "Colon" then
-			if (member.kindof == "MemberExpression" or member.kindof == "Identifier") then
+			if member.kindof == "MemberExpression" or member.kindof == "Identifier" then
 				local property = catch("<name> expected", parseTerm, "Identifier") --[[@as Expression]]
 				local caller = { kindof = "MemberExpression", record = member --[[@as Expression]], property = property, computed = false, instance = true }
 				return parseCallExpression(caller, member)
-			elseif member.kindof == "StringLiteral" then
-				---@cast member +StringLiteral
-				member.key = true
-				return member
 			end
 		end
 	end
@@ -436,8 +432,10 @@ local function parseRecordExpression ()
 					key = value
 				end
 			end
-			elements[#elements + 1] = { kindof = "RecordElement", key = key, value = (key and parseExpression() or value) --[[@as Expression]] }
-			suppose("Comma")
+			elements[#elements + 1] = { kindof = "RecordElement", key = key, value = key and parseExpression() or value --[[@as Expression]] }
+			if not suppose "Comma" then
+				break
+			end
 		end
 		expect("']' expected", "RightBracket")
 		return { kindof = "RecordLiteralExpression", elements = elements }
@@ -474,13 +472,13 @@ end
 
 ---@return StatementExpression?, boolean?
 function parseStatement ()
-	local decorations, exportable ---@type string[]?, boolean?
+	local decorations, exportable ---@type table<string, true>, boolean?
 	while true do
 		repeat
 			local typeof, value, line = peek()
 			-- Decorators
 			if typeof == "At" then
-				decorations = {} ---@type { [string]: true }
+				decorations = {}
 				while suppose "At" do
 					local name = expect("<name> expected", "Identifier") --[[@as string]]
 					-- ExportDecoration
@@ -504,7 +502,7 @@ function parseStatement ()
 				local names = (imports.kindof == "Identifier") and imports or {}
 				if imports.kindof == "RecordLiteralExpression" then
 					for _, name in ipairs(imports.elements) do
-						names[#names + 1] = (name.value.kindof == "Identifier") and name.value or throw("element must be an identifier") --[[@as Identifier]]
+						names[#names + 1] = (name.value.kindof == "Identifier") and name.value or throw("<name> expected") --[[@as Identifier]]
 					end
 				end
 				expect("'from' expected", "From")
@@ -550,40 +548,10 @@ function parseStatement ()
 				end
 				return { kindof = "ReturnStatement", arguments = arguments }
 			-- PrototypeDeclaration
-			elseif typeof == "__Prototype" then
-				consume()
-				local body, constructor = {}, false ---@type (Comment|VariableDeclaration|FunctionDeclaration)[], boolean
-				local name = catch("<name> expected", parseMemberExpression, "Identifier", exportable or "MemberExpression") --[[@as Expression]]
-				expect("Missing '{' after <name>", "LeftBrace")
-				local parent = (current.typeof ~= "RightBrace") and parseExpression() or nil ---@type Expression?
-				expect("Missing '}'", "RightBrace")
-				while current.typeof ~= "End" do
-					local last, statement = current.line, catch("syntax error", parseStatement, "Comment", "VariableDeclaration", "FunctionDeclaration") --[[@as Comment|VariableDeclaration|FunctionDeclaration]]
-					if statement.kindof == "FunctionDeclaration" then
-						if statement.name.kindof ~= "Identifier" then
-							throw("syntax error, <name> expected", last)
-						end
-						if statement.name.value == "constructor" then
-							if parent then
-								local firstStatement = statement.body[1] ---@type CallExpression
-								if not (firstStatement and firstStatement.kindof == "CallExpression" and firstStatement.caller.value == "super") then
-									throw("'super' call required inside extended prototype constructor", last)
-								end
-							end
-							if decorations and decorations["abstract"] then
-								throw("prototype is abstract, no constructor implementations are allowed", last)	
-							end
-							constructor = constructor and throw("multiple constructor implementations are not allowed", last) or true
-						end
-					end
-					body[#body + 1] = statement
-				end
-				expect("'end' expected " .. string.format((current.line > line) and "(to close 'prototype' at line %s)" or "", line), "End")
-				return { kindof = "PrototypeDeclaration", name = name, parent = parent, body = body, decorations = decorations }, exportable
 			elseif typeof == "Prototype" then
 				consume()
 				local name = catch("<name> expected", parseMemberExpression, "Identifier", exportable or "MemberExpression") --[[@as Expression]]
-				local hasConstructor, body = false, {} ---@type boolean, (Comment|VariableDeclaration|VariableAssignment|FunctionDeclaration)[]
+				local hasConstructor, body = false, {} ---@type boolean, PrototypeStatement[]
 				expect("Missing '{' after <name>", "LeftBrace")
 				local parent = (current.typeof ~= "RightBrace") and parseExpression() or nil ---@type Expression?
 				expect("Missing '}'", "RightBrace")
@@ -624,8 +592,7 @@ function parseStatement ()
 						},
 						parameters = {
 							{
-								kindof = "Ellipsis",
-								value = "..."
+								kindof = "Ellipsis"
 							}
 						},
 						body = {
@@ -637,8 +604,7 @@ function parseStatement ()
 								},
 								arguments = {
 									{
-										kindof = "Identifier",
-										value = "..."
+										kindof = "Ellipsis"
 									}
 								}
 							}
@@ -657,7 +623,7 @@ function parseStatement ()
 						expect("'then' missing", "Then")
 					end
 					repeat
-						local target = latest.consequent or latest
+						local target = latest.consequent or latest --[[@as IfStatement]]
 						target[#target + 1] = parseStatement()
 						if current.typeof == "Elseif" or suppose("Else") then
 							latest.alternate = {}
@@ -686,25 +652,23 @@ function parseStatement ()
 			elseif typeof == "For" then
 				consume()
 				local condition ---@type NumericLoopCondition|IterationLoopCondition
-				local last, initial = current.value, parseExpression() --[[@as Expression]]
-				if initial.kindof == "Identifier" then
-					expect("'=' expected", "Equal")
-					initial = { kindof = "AssignmentExpression", left = initial, operator = "=", right = parseExpression() } --[[@as AssignmentExpression]]
+				local conditionVariable = catch("<name> expected", parseTerm, "Identifier") --[[@as Identifier]]
+				if suppose "Equal" then
+					local init = { kindof = "AssignmentExpression", left = conditionVariable, operator = "=", right = parseExpression() --[[@as Expression]] }
 					expect("'to' expected", "To")
-					condition = { init = initial, goal = parseExpression(), step = suppose("Step") and parseExpression() } --[[@as NumericLoopCondition]]
-				elseif initial.kindof == "RecordLiteralExpression" then
-					local variable = {} ---@type Identifier[]
-					for index, element in ipairs(initial.elements) do
-						if element.value.kindof ~= "Identifier" or element.key then
-							throw(string.format("expected <name> near record element nº %i", index))
-						else
-							variable[#variable + 1] = element.value
+					condition = { init = init, goal = parseExpression(), step = suppose("Step") and parseExpression() } --[[@as NumericLoopCondition]]
+				elseif current.typeof == "Comma" or current.typeof == "In" then
+					local variable = { conditionVariable } ---@type Identifier[]
+					while suppose "Comma" do
+						if current.typeof ~= "Identifier" then
+							throw("<name> expected near '" .. current.value .. "'")
 						end
+						variable[#variable + 1] = catch("<name> expected", parseTerm, "Identifier")
 					end
 					expect("'in' expected", "In")
 					condition = { variable = variable, iterable = parseExpression() } --[[@as IterationLoopCondition]]
 				else
-					throw("<name> or <record> expected near '" .. last .. "'")
+					throw("'=' or 'in' expected near '" .. current.value .. "'")
 				end
 				expect("'do' missing", "Do")
 				local body = {} ---@type StatementExpression[]
@@ -725,7 +689,7 @@ function parseStatement ()
 						end
 						return left
 					elseif left.kindof == "RecordLiteralExpression" then
-						operator, right = expect("'=' expected", "Equal"), catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis")
+						operator, right = expect("'=' expected", "Equal"), catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "CallExpression", "Ellipsis", "UnaryExpression")
 					elseif left.kindof == "MemberExpression" or left.kindof == "Identifier" then
 						operator, right = expect("'=' expected", "Equal", "MinusEqual", "PlusEqual", "AsteriskEqual", "SlashEqual", "CircumflexEqual", "PercentEqual", "ConcatEqual"), parseExpression()
 					else
@@ -749,6 +713,7 @@ end
 ---@param kindof string The AST kind.
 ---@return AST #The AST table.
 return function (location, kindof)
+	print(location)
 	local file <close> = io.open(location) or error("Source file not found.")
 	local source = file:read("*a")
 	local ast, exports = { kindof = kindof, body = {} }, {} ---@type AST, table<string, true>

@@ -1,9 +1,10 @@
 --- Takes a relative path as input and returns the corresponding absolute path.
 ---@param relativePath string The relative path.
+---@param basePath? string Base path to generate the absolute path.
 ---@return string #The absolute path.
-local function toabsolute (relativePath)
-    local scriptDirectory = debug.getinfo(0, "S").source:sub(2):gsub("^[^/]", "/%1"):match("(.*[/\\])")
-    local absolutePath = scriptDirectory .. relativePath
+local function toabsolute (relativePath, basePath)
+    local scriptDirectory = basePath or debug.getinfo(0, "S").source:sub(2):gsub("^[^/]", "/%1")
+    local absolutePath = scriptDirectory:match("(.*[/\\])") .. relativePath
 	absolutePath = absolutePath:gsub("\\", "/")
 	local parts = {}
     for part in absolutePath:gmatch("[^/]+") do

@@ -3,10 +3,10 @@
 --- Terms
 ---@alias UnaryExpression { kindof: "UnaryExpression", operator: "-"|"$"|"#"|"!"|"...", argument: Expression }
 ---@alias Identifier { kindof: "Identifier", value: string }
----@alias StringLiteral { kindof: "StringLiteral", value: string, key?: boolean }
+---@alias StringLiteral { kindof: "StringLiteral", value: string }
 ---@alias NumberLiteral { kindof: "NumberLiteral", value: number }
 ---@alias BooleanLiteral { kindof: "BooleanLiteral", value: "true"|"false" }
----@alias Ellipsis { kindof: "Ellipsis", value: string }
+---@alias Ellipsis { kindof: "Ellipsis" }
 ---@alias Undefined { kindof: "Undefined" }
 ---@alias Term UnaryExpression|Identifier|StringLiteral|NumberLiteral|BooleanLiteral|Undefined|Ellipsis
 
@@ -16,11 +16,11 @@
 ---@alias NewExpression { kindof: "NewExpression", prototype: Expression, arguments: Expression[] }
 ---@alias BinaryOperator "and"|"or"|"is"|"=="|">"|"<"|">="|"<="|"<>"|"+"|"-"|"*"|"/"|"^"|"%"
 ---@alias BinaryExpression { kindof: "BinaryExpression", left: Expression, operator: BinaryOperator, right: Expression }
----@alias RecordElement { kindof: "RecordElement", key?: StringLiteral|Identifier|NumberLiteral, value: Expression }
+---@alias RecordElement { kindof: "RecordElement", key?: StringLiteral, value: Expression }
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentOperator "="|"+="|"-="|"*="|"/="|"^="|"%="
 ---@alias AssignmentExpression { kindof: "AssignmentExpression", left?: MemberExpression|Identifier, operator?: AssignmentOperator, right: Expression }
----@alias FunctionExpression { kindof: "FunctionExpression", parameters: Identifier[], body: BlockStatement[] }
+---@alias FunctionExpression { kindof: "FunctionExpression", super?: Identifier, parameters: Identifier[], body: BlockStatement[] }
 ---@alias ParenthesizedExpression { kindof: "ParenthesizedExpression", node: Expression }
 ---@alias Expression Term|ParenthesizedExpression|MemberExpression|CallExpression|NewExpression|RecordLiteralExpression|FunctionExpression|BinaryExpression
 
@@ -29,7 +29,7 @@
 ---@alias ImportDeclaration { kindof: "ImportDeclaration", names: Identifier|Identifier[], location: StringLiteral }
 ---@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: AssignmentExpression[], decorations?: string[] }
 ---@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[] }
----@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, parameters: Identifier[], body: BlockStatement[], decorations?: string[] }
+---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, super?: Identifier, parameters: Identifier[], body: BlockStatement[], decorations?: string[] }
 ---@alias ReturnStatement { kindof: "ReturnStatement", arguments: Expression[] }
 ---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Expression, parent: Expression, body: (Comment|VariableDeclaration|FunctionDeclaration)[], decorations?: string[] }
 ---@alias IfStatement { kindof: "IfStatement", test: Expression, consequent: BlockStatement[], alternate?: IfStatement|BlockStatement[] }
@@ -40,4 +40,5 @@
 ---@alias BreakStatement { kindof: "BreakStatement" }
 ---@alias Statement Comment|ImportDeclaration|VariableDeclaration|FunctionDeclaration|ReturnStatement|PrototypeDeclaration|IfStatement|WhileLoop|ForLoop|BreakStatement|VariableAssignment
 ---@alias BlockStatement Statement|CallExpression|NewExpression
+---@alias PrototypeStatement Comment|VariableDeclaration|VariableAssignment|FunctionDeclaration
 ---@alias StatementExpression Statement|Expression
