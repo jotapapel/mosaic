@@ -199,8 +199,6 @@ local function scan (source)
 						typeof = "Bang"
 					elseif char == "@" then
 						typeof = "At"
-					elseif char == "?" then
-						typeof = "Question"
 					end
 				end
 				-- unknown characters
@@ -577,15 +575,19 @@ function parseStatement ()
 						elseif statementExpression.name.kindof ~= "Identifier" then
 							throw("<name> expected", lastLine)
 						end
+					-- catch @get and @set assignments
 					elseif statementExpression.kindof == "VariableAssignment" then
 						if (statementExpression.decorations and (statementExpression.decorations["get"] or statementExpression.decorations["set"])) then
 							local decoration = statementExpression.decorations["get"] and "@get" or "@set"
+							-- catch multiple assignments
 							if #statementExpression.assignments > 1 then
 								throw("multiple '" .. decoration .. "' assignments are not allowed", lastLine)
 							end
+							-- catch variable names
 							if statementExpression.assignments[1].left.kindof ~= "Identifier" then
 								throw("<name> expected", lastLine)
 							end
+						-- catch wrong decorations
 						else
 							throw("'@get' or '@set' decoration missing", lastLine)
 						end

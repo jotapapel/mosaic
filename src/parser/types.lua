@@ -20,18 +20,18 @@
 ---@alias RecordLiteralExpression { kindof: "RecordLiteralExpression", elements: RecordElement[] }
 ---@alias AssignmentOperator "="|"+="|"-="|"*="|"/="|"^="|"%="
 ---@alias AssignmentExpression { kindof: "AssignmentExpression", left?: MemberExpression|Identifier, operator?: AssignmentOperator, right: Expression }
----@alias FunctionExpression { kindof: "FunctionExpression", super?: Identifier, parameters: Identifier[], body: BlockStatement[] }
+---@alias FunctionExpression { kindof: "FunctionExpression", parameters: Identifier[], body: BlockStatement[] }
 ---@alias ParenthesizedExpression { kindof: "ParenthesizedExpression", node: Expression }
 ---@alias Expression Term|ParenthesizedExpression|MemberExpression|CallExpression|NewExpression|RecordLiteralExpression|FunctionExpression|BinaryExpression
 
 --- Statements
 ---@alias Comment { kindof: "Comment", content: string[] }
 ---@alias ImportDeclaration { kindof: "ImportDeclaration", names: Identifier|Identifier[], location: StringLiteral }
----@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: AssignmentExpression[], decorations?: string[] }
----@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[], decorations?: string[] }
----@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, super?: Identifier, parameters: Identifier[], body: BlockStatement[], decorations?: string[] }
+---@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: AssignmentExpression[], decorations?: table<string, true?> }
+---@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[], decorations?: table<string, true?> }
+---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, super?: Identifier, parameters: Identifier[], body: BlockStatement[], decorations?: table<string, true?> }
 ---@alias ReturnStatement { kindof: "ReturnStatement", arguments: Expression[] }
----@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Expression, parent: Expression, body: (Comment|VariableDeclaration|FunctionDeclaration)[], decorations?: string[] }
+---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Expression, parent: Expression, body: (Comment|VariableDeclaration|FunctionDeclaration)[], decorations?: table<string, true?> }
 ---@alias IfStatement { kindof: "IfStatement", test: Expression, consequent: BlockStatement[], alternate?: IfStatement|BlockStatement[] }
 ---@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: BlockStatement[] }
 ---@alias NumericLoopCondition { init: AssignmentExpression, goal: Expression, step?: Expression }

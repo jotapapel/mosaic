@@ -1,3 +1,12 @@
 prototype Parent {}
-	function mte.rme () end
+	function myMethod ()
+		return 99
+	end
+end
+
+prototype Child {Parent}
+	function myMethod()
+		var a = super()
+		return a * 2
+	end
 end
