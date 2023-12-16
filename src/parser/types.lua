@@ -28,7 +28,7 @@
 ---@alias Comment { kindof: "Comment", content: string[] }
 ---@alias ImportDeclaration { kindof: "ImportDeclaration", names: Identifier|Identifier[], location: StringLiteral }
 ---@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: AssignmentExpression[], decorations?: string[] }
----@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[] }
+---@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[], decorations?: string[] }
 ---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, super?: Identifier, parameters: Identifier[], body: BlockStatement[], decorations?: string[] }
 ---@alias ReturnStatement { kindof: "ReturnStatement", arguments: Expression[] }
 ---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Expression, parent: Expression, body: (Comment|VariableDeclaration|FunctionDeclaration)[], decorations?: string[] }

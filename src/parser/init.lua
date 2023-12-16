@@ -557,31 +557,40 @@ function parseStatement ()
 				expect("Missing '}'", "RightBrace")
 				while current.typeof ~= "End" do
 					local lastLine = current.line
-					local statement = catch("syntax error", parseStatement, "Comment", "VariableDeclaration", "VariableAssignment", "FunctionDeclaration") --[[@as Comment|VariableDeclaration|VariableAssignment|FunctionDeclaration]]
+					local statementExpression = catch("syntax error", parseStatement, "Comment", "VariableDeclaration", "VariableAssignment", "FunctionDeclaration") --[[@as Comment|VariableDeclaration|VariableAssignment|FunctionDeclaration]]
 					-- catch function and variable names
-					if statement.kindof == "VariableAssignment" or statement.kindof == "FunctionDeclaration" then
-						if statement.name.kindof ~= "Identifier" then
+					if statementExpression.kindof == "FunctionDeclaration" then
+						if statementExpression.name.value == "constructor" then
+							-- catch 'super' call
+							if parent then
+								local firstInnerStatement = statementExpression.body[1] --[[@as CallExpression]]
+								if not (firstInnerStatement and firstInnerStatement.kindof == "CallExpression" and firstInnerStatement.caller.value == "super") then
+									throw("'super' call required inside child prototype constructor", lastLine)
+								end
+							end
+							-- catch abstract prototype
+							if decorations and decorations["abstract"] then
+								throw("abstract prototypes don't allow constructor implementations", lastLine)
+							end
+							-- catch multiple constructor implementations
+							hasConstructor = hasConstructor and throw("multiple constructor implementations are not allowed", lastLine)
+						elseif statementExpression.name.kindof ~= "Identifier" then
 							throw("<name> expected", lastLine)
 						end
-						if statement.kindof == "FunctionDeclaration" then
-							if statement.name.value == "constructor" then
-								-- catch 'super' call
-								if parent then
-									local firstInnerStatement = statement.body[1] --[[@as CallExpression]]
-									if not (firstInnerStatement and firstInnerStatement.kindof == "CallExpression" and firstInnerStatement.caller.value == "super") then
-										throw("'super' call required inside child prototype constructor", lastLine)
-									end
-								end
-								-- catch abstract prototype
-								if decorations and decorations["abstract"] then
-									throw("abstract prototypes don't allow constructor implementations", lastLine)
-								end
-								-- catch multiple constructor implementations
-								hasConstructor = hasConstructor and throw("multiple constructor implementations are not allowed", lastLine)
+					elseif statementExpression.kindof == "VariableAssignment" then
+						if (statementExpression.decorations and (statementExpression.decorations["get"] or statementExpression.decorations["set"])) then
+							local decoration = statementExpression.decorations["get"] and "@get" or "@set"
+							if #statementExpression.assignments > 1 then
+								throw("multiple '" .. decoration .. "' assignments are not allowed", lastLine)
 							end
+							if statementExpression.assignments[1].left.kindof ~= "Identifier" then
+								throw("<name> expected", lastLine)
+							end
+						else
+							throw("'@get' or '@set' decoration missing", lastLine)
 						end
 					end
-					body[#body + 1] = statement
+					body[#body + 1] = statementExpression
 				end
 				if not hasConstructor and parent then
 					table.insert(body, 1, {
@@ -700,7 +709,7 @@ function parseStatement ()
 						break
 					end
 				end
-				return { kindof = "VariableAssignment", assignments = assignments }
+				return { kindof = "VariableAssignment", assignments = assignments, decorations = decorations }
 			end
 			-- Unknown
 			throw("unexpected symbol near '" .. value .. "'")
@@ -713,7 +722,6 @@ end
 ---@param kindof string The AST kind.
 ---@return AST #The AST table.
 return function (location, kindof)
-	print(location)
 	local file <close> = io.open(location) or error("Source file not found.")
 	local source = file:read("*a")
 	local ast, exports = { kindof = kindof, body = {} }, {} ---@type AST, table<string, true>
