@@ -40,5 +40,4 @@
 ---@alias BreakStatement { kindof: "BreakStatement" }
 ---@alias Statement Comment|ImportDeclaration|VariableDeclaration|FunctionDeclaration|ReturnStatement|PrototypeDeclaration|IfStatement|WhileLoop|ForLoop|BreakStatement|VariableAssignment
 ---@alias BlockStatement Statement|CallExpression|NewExpression
----@alias PrototypeStatement Comment|VariableDeclaration|VariableAssignment|FunctionDeclaration
 ---@alias StatementExpression Statement|Expression

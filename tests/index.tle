@@ -1,12 +1,12 @@
 prototype Parent {}
-	function myMethod ()
-		return 99
+	@set myValue = function (myvalue)
+		self.value = myvalue
 	end
 end
 
 prototype Child {Parent}
-	function myMethod()
-		var a = super()
-		return a * 2
+	@set myValue = function (valuee)
+		super(valuee)
+		self.value = value
 	end
 end

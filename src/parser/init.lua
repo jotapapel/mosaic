@@ -549,7 +549,7 @@ function parseStatement ()
 			elseif typeof == "Prototype" then
 				consume()
 				local name = catch("<name> expected", parseMemberExpression, "Identifier", exportable or "MemberExpression") --[[@as Expression]]
-				local hasConstructor, body = false, {} ---@type boolean, PrototypeStatement[]
+				local hasConstructor, body = false, {} ---@type boolean, BlockStatement[]
 				expect("Missing '{' after <name>", "LeftBrace")
 				local parent = (current.typeof ~= "RightBrace") and parseExpression() or nil ---@type Expression?
 				expect("Missing '}'", "RightBrace")
@@ -578,14 +578,22 @@ function parseStatement ()
 					-- catch @get and @set assignments
 					elseif statementExpression.kindof == "VariableAssignment" then
 						if (statementExpression.decorations and (statementExpression.decorations["get"] or statementExpression.decorations["set"])) then
-							local decoration = statementExpression.decorations["get"] and "@get" or "@set"
 							-- catch multiple assignments
 							if #statementExpression.assignments > 1 then
+								local decoration = statementExpression.decorations["get"] and "@get" or "@set"
 								throw("multiple '" .. decoration .. "' assignments are not allowed", lastLine)
 							end
 							-- catch variable names
 							if statementExpression.assignments[1].left.kindof ~= "Identifier" then
 								throw("<name> expected", lastLine)
+							end
+							-- catch getter with parameters
+							if statementExpression.decorations["get"] and #statementExpression.assignments[1].right.parameters > 0 then
+								throw("@get function does not accept any parameters", lastLine)
+							end
+							-- catch setter with more than one parameter
+							if statementExpression.decorations["set"] and #statementExpression.assignments[1].right.parameters > 1 then
+								throw("@set function does not accept more than one parameter", lastLine)
 							end
 						-- catch wrong decorations
 						else
