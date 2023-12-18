@@ -1,12 +1,13 @@
 prototype Parent {}
-	@set myValue = function (myvalue)
-		self.value = myvalue
-	end
-end
-
-prototype Child {Parent}
-	@set myValue = function (valuee)
-		super(valuee)
+	@set myValue = function (value)
 		self.value = value
 	end
 end
+
+prototype Child {Parent} end
+
+var child = Child{}
+child.myValue = 991
+print(child.value)
+child.myValue = 991291
+print(child.value)

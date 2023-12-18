@@ -107,7 +107,7 @@ function generateExpression(node, level, properties)
 		return string.format(pattern, record, property)
 	elseif kindof == "CallExpression" then
 		if node.caller.value == "super" and properties and properties.record and properties.property then
-			node.caller, node.arguments = {
+			local caller = {
 				kindof = "MemberExpression",
 				record = {
 					kindof = "Identifier",
@@ -118,7 +118,8 @@ function generateExpression(node, level, properties)
 					value = properties.property --[[@as string]]
 				} --[[@as Identifier]],
 				computed = false
-			} --[[@as MemberExpression]], unpack {
+			} --[[@as MemberExpression]]
+			local arguments = unpack {
 				{
 					kindof = "Identifier",
 					value = "self"
@@ -129,6 +130,7 @@ function generateExpression(node, level, properties)
 				} or nil,
 				node.arguments
 			}
+			node.caller, node.arguments = caller, arguments ---@type MemberExpression, Expression[]
 		end
 		local caller, arguments = generateExpression(node.caller, level, properties), {} ---@type string, string[]
 		for index, argument in ipairs(node.arguments) do
@@ -272,7 +274,29 @@ function generateStatement(node, level, properties)
 				if statementExpression.decorations["set"] then
 					local parameter = (statementExpression.assignments[1].right --[[@as FunctionExpression]]).parameters[1].value
 					local ifNodeBody = substitute(statementExpression.assignments[1].right.body, parameter, "value")
-					ifNode.consequent = ifNodeBody --[=[@as BlockStatement[]]=]
+					ifNode.consequent, ifNode.alternate = ifNodeBody, {
+						{
+							kindof = "CallExpression",
+							caller = {
+								kindof = "Identifier",
+								value = "rawset"
+							},
+							arguments = {
+								{
+									kindof = "Identifier",
+									value = "self"
+								},
+								{
+									kindof = "Identifier",
+									value = "key"
+								},
+								{
+									kindof = "Identifier",
+									value = "value"
+								}
+							}
+						}
+					} --[=[@as BlockStatement[]]=]
 					if not prototypeNewIndexes.kindof then
 						prototypeNewIndexes = ifNode
 					else
@@ -644,8 +668,52 @@ function generateStatement(node, level, properties)
 												},
 												operator = "=",
 												right = {
-													kindof = "Identifier",
-													value = safeParent or safeName
+													kindof = "FunctionExpression",
+													parameters = {
+														{
+															kindof = "Identifier",
+															value = "self"
+														},
+														{
+															kindof = "Identifier",
+															value = "key"
+														}
+													},
+													body = {
+														{
+															kindof = "ReturnStatement",
+															arguments = {
+																node.parent and {
+																	kindof = "MemberExpression",
+																	record = {
+																		kindof = "Identifier",
+																		value = safeParent
+																	},
+																	property = {
+																		kindof = "Identifier",
+																		value = "key"
+																	},
+																	computed = true
+																} or {
+																	kindof = "CallExpression",
+																	caller = {
+																		kindof = "Identifier",
+																		value = "rawget"
+																	},
+																	arguments = {
+																		{
+																			kindof = "Identifier",
+																			value = "self"
+																		},
+																		{
+																			kindof = "Identifier",
+																			value = "key"
+																		}
+																	}
+																}
+															}
+														}
+													}
 												}
 											}
 										}
@@ -685,37 +753,44 @@ function generateStatement(node, level, properties)
 														}
 													},
 													body = unpack {
-														(function ()
-															prototypeNewIndexes.alternate = {
-																{
-																	kindof = "CallExpression",
-																	caller = {
-																		kindof = "Identifier",
-																		value = "rawset"
-																	},
-																	arguments = {
-																		{
-																			kindof = "Identifier",
-																			value = "self"
-																		},
-																		{
-																			kindof = "Identifier",
-																			value = "key"
-																		},
-																		{
-																			kindof = "Identifier",
-																			value = "value"
-																		}
-																	}
-																}
-															}
-															return prototypeNewIndexes
-														end)()
+														prototypeNewIndexes
 													}
 												}
 											}
 										}
-									},
+									} or (node.parent and {
+										kindof = "VariableAssignment",
+										assignments  = {
+											{
+												kindof = "AssignmentExpression",
+												left = {
+													kindof = "MemberExpression",
+													record = {
+														kindof = "Identifier",
+														value = safeName
+													},
+													property = {
+														kindof = "Identifier",
+														value = "__newindex"
+													},
+													computed = false
+												},
+												operator = "=",
+												right = {
+													kindof = "MemberExpression",
+													record = {
+														kindof = "Identifier",
+														value = safeParent
+													},
+													property = {
+														kindof = "Identifier",
+														value = "__newindex"
+													},
+													computed = false
+												}
+											}
+										}
+									}),
 									prototypeContructorComment,
 									prototypeConstructor,
 									{
