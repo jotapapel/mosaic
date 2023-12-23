@@ -234,9 +234,10 @@ local function serialize (value, level, visited)
 			if #parts == 0 then
 				return "{}"
 			end
-			visited[value] = delimiter:sub(1, 2) .. indent .. table.concat(parts, ",\n" .. indent) .. string.format(delimiter:sub(-4), string.rep("\t", level - 1))
+			visited[value] = delimiter:sub(1, 2) .. "/0" .. table.concat(parts, ",\n" .. "/0") .. delimiter:sub(-4)
 		end
-		return visited[value]
+		local output = string.gsub(visited[value], "/0", string.rep("\t", level))
+		return string.format(output, string.rep("\t", level - 1))
 	end
 	return "nil"
 end

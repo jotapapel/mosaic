@@ -1,13 +1,5 @@
-prototype Parent {}
-	@set myValue = function (value)
-		self.value = value
-	end
+var str = string.gsub("HELLO", "H", function (a) return "Z" end)
+
+prototype MyPrototype {}
+
 end
-
-prototype Child {Parent} end
-
-var child = Child{}
-child.myValue = 991
-print(child.value)
-child.myValue = 991291
-print(child.value)

@@ -3,11 +3,11 @@ local parse = require "src.parser"
 local generate = require "src.generator.Lua"
 
 --- Create an asset from a Lua file.
----@param location string
----@param kindof "Program"|"Module"
----@param id integer
----@return FileBundle
-local function createAsset (location, kindof, id, entry)
+---@param location string The location of the Lua file.
+---@param kindof FileType The type of processing to do. When set to **"Program"** all `@export` references will be avoided.
+---@param id integer The internal identifier of the file.
+---@return FileBundle #A table containing the id, location, dependencies and code of the Lua file.
+local function createAsset (location, kindof, id)
 	local ast, dependencies = parse(location, kindof), {} ---@type AST, string[]
 	for _, node in ipairs(ast.body) do
 		if node.kindof == "ImportDeclaration" then
@@ -23,8 +23,8 @@ local function createAsset (location, kindof, id, entry)
 end
 
 --- Process a Lua file to bundle it's dependencies.
----@param entry string
----@return FileBundle[]
+---@param entry string The main Lua file to be processed.
+---@return FileBundle[] #An array of FileBundles corresponding to all the files used by the main Lua file.
 local function createGraph (entry)
 	local mainAsset, mainDependencies = createAsset(entry, "Program", 0), {}
 	local queue = { mainAsset } ---@type FileBundle[]
@@ -33,7 +33,7 @@ local function createGraph (entry)
 		local dirname = fs.getdir(asset.location)
 		for _, relativePath in ipairs(asset.dependencies) do
 			local absolutePath = fs.toabsolute(fs.join(dirname, relativePath))
-			local child = createAsset(absolutePath, "Module", #queue, entry)
+			local child = createAsset(absolutePath, "Module", #queue)
 			asset.mapping[relativePath] = mainDependencies[absolutePath] or child.id
 			if not mainDependencies[absolutePath] then
 				queue[#queue + 1], mainDependencies[absolutePath] = child, child.id
@@ -44,8 +44,8 @@ local function createGraph (entry)
 end
 
 --- Bundle all files and dependencies.
----@param graph FileBundle[]
----@return string
+---@param graph FileBundle[] Array of FileBundles already processed by the bundler.
+---@return string source The final source code of all modules bundled together.
 local function bundle (graph)
 	local modules = {} ---@type string[]
 	for _, module in ipairs(graph) do
@@ -62,12 +62,15 @@ local function bundle (graph)
 	}]], fs.filename(fs.toabsolute(module.location)), module.code, #mapping > 0 and string.format(" %s ", table.concat(mapping, ", ")) or "")
 	end
 	return string.format([[(function (modules)
-		local require
-		function require (id)
-			local fn, mapping = table.unpack(modules[id])
-			local module = { exports = {} }
-			fn(function (name) return require(mapping[name]) end, module.exports)
-			return module.exports
+		local loaded = {}
+		local function require(id)
+			if not loaded[id] then
+				local fn, mapping = table.unpack(modules[id])
+				local exports = {}
+				fn(function(name) return require(mapping[name]) end, exports)
+				loaded[id] = exports
+			end
+			return loaded[id]
 		end
 		require(1)
 end)({
@@ -82,4 +85,5 @@ local result = bundle(graph)
 local outfile <const>, err = io.open(targetFilepath, "w+") --[[@as file*]]
 outfile:write(result)
 
+---@alias FileType "Program"|"Module"
 ---@alias FileBundle { id: integer, location: string, dependencies: string[], code: string, mapping?: table<string, integer> }

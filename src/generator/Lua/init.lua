@@ -86,7 +86,7 @@ function generateExpression(node, level, properties)
 		if operator == "!" then
 			return string.format("not(%s)", argument)
 		elseif operator == "#" then
-			if node.argument.kindof == "Ellipsis" then
+			if node.argument.kindof == "Identifier" and node.argument.value == "..." then
 				return "select(\"#\", ...)"
 			end
 			return string.format("#%s", argument)
@@ -158,7 +158,7 @@ function generateExpression(node, level, properties)
 		for index, element in ipairs(node.elements) do
 			local pattern = "[%s] = %s"
 			if element.key then
-				if string.match(element.key.value, "^[_%a][_%w]*$") then
+				if element.key.kindof == "Identifier" then
 					(element.key --[[@as Identifier]]).kindof, pattern = "Identifier", "%s = %s"
 				elseif tonumber(element.key.value) then
 					(element.key --[[@as NumberLiteral]]).kindof, (element.key --[[@as NumberLiteral]]).value = "NumberLiteral", tonumber(element.key.value)
@@ -177,7 +177,7 @@ function generateExpression(node, level, properties)
 		end
 		return generate(string.format("function (%s)", table.concat(parameters, ", ")), body, "end", level - 1)
 	elseif kindof == "ParenthesizedExpression" then
-		local inner = generateExpression(node.node, level, properties)
+		local inner = generateExpression(node.nodeof, level, properties)
 		return string.format("(%s)", inner)
 	end
 	return node.value
@@ -197,15 +197,11 @@ function generateStatement(node, level, properties)
 	-- ImportDeclaration
 	elseif kindof == "ImportDeclaration" then
 		local location = generateExpression(node.location, level):match("^\"(.-)\"$")
-		local internal = string.format("__%s", location:match("/(.-)%."):gsub("/", "_"))
-		if node.names.kindof then
-			exports[node.names.value] = string.format("%s.default", internal)
-		else
-			for _, name in ipairs(node.names) do
-				exports[name.value] = string.format("%s.%s", internal, name.value)
-			end
+		local safeName = string.format("__%s", location:match("/(.-)%."):gsub("/", "_"))
+		for _, name in ipairs(node.names) do
+			exports[name.value] = string.format("%s.%s", safeName, name.value)
 		end
-		return string.format("local %s = require(\"%s\")", internal, location)
+		return string.format("local %s = require(\"%s\")", safeName, location)
 	-- VariableDeclaration
 	elseif kindof == "VariableDeclaration" then
 		local lefts, rights, storage = {}, {}, (node.decorations and node.decorations["global"]) and "" or "local " ---@type string[], string[], string
@@ -274,7 +270,48 @@ function generateStatement(node, level, properties)
 				if statementExpression.decorations["set"] then
 					local parameter = (statementExpression.assignments[1].right --[[@as FunctionExpression]]).parameters[1].value
 					local ifNodeBody = substitute(statementExpression.assignments[1].right.body, parameter, "value")
-					ifNode.consequent, ifNode.alternate = ifNodeBody, {
+					ifNode.consequent, ifNode.alternate = ifNodeBody, node.parent and {
+							{
+							kindof = "CallExpression",
+							caller = {
+								kindof = "ParenthesizedExpression",
+								nodeof = {
+									kindof = "BinaryExpression",
+									left = {
+										kindof = "MemberExpression",
+										record = {
+											kindof = "Identifier",
+											value = safeParent
+										},
+										property = {
+											kindof = "Identifier",
+											value = "__newindex"
+										},
+										computed = false
+									},
+									operator = "or",
+									right = {
+										kindof = "Identifier",
+										value = "rawset"
+									}
+								}
+							},
+							arguments = {
+								{
+									kindof = "Identifier",
+									value = "self"
+								},
+								{
+									kindof = "Identifier",
+									value = "key"
+								},
+								{
+									kindof = "Identifier",
+									value = "value"
+								}
+							}
+						}
+					} or {
 						{
 							kindof = "CallExpression",
 							caller = {
@@ -307,6 +344,7 @@ function generateStatement(node, level, properties)
 					if not prototypeIndexes.kindof then
 						prototypeIndexes = ifNode
 					else
+						ifNode.alternate = prototypeIndexes.alternate
 						prototypeIndexes.alternate = ifNode --[[@as IfStatement]]
 					end
 				end
@@ -320,8 +358,8 @@ function generateStatement(node, level, properties)
 							kindof = "MemberExpression",
 							record = {
 								kindof = "Identifier",
-								value = name --[[@as string]]
-							},
+								value = safeName
+							} --[[@as Identifier]],
 							property = declaration.left,
 							computed = false
 						},
@@ -336,9 +374,9 @@ function generateStatement(node, level, properties)
 			-- FunctionDeclaration
 			elseif statementExpression.kindof == "FunctionDeclaration" then
 				if statementExpression.name.value == "constructor" then
+					prototypeConstructorParameters = statementExpression.parameters
 					local firstInnerStatementExpression = table.remove(statementExpression.body, 1)
 					if firstInnerStatementExpression and firstInnerStatementExpression.kindof == "CallExpression" and firstInnerStatementExpression.caller.value == "super" then
-						prototypeConstructorParameters = statementExpression.parameters
 						prototypeConstructorBody = unpack {
 							{
 								kindof = "VariableDeclaration",
@@ -536,7 +574,7 @@ function generateStatement(node, level, properties)
 						kindof = "CallExpression",
 						caller = {
 							kindof = "ParenthesizedExpression",
-							node = {
+							nodeof = {
 								kindof = "FunctionExpression",
 								parameters = {
 									parent and { kindof = "Identifier", value = safeParent }
@@ -594,7 +632,7 @@ function generateStatement(node, level, properties)
 														{
 															kindof = "ReturnStatement",
 															arguments = {
-																parent and {
+																safeParent and {
 																	kindof = "BinaryExpression",
 																	left = {
 																		kindof = "CallExpression",
@@ -667,7 +705,7 @@ function generateStatement(node, level, properties)
 													computed = false
 												},
 												operator = "=",
-												right = {
+												right = safeParent and {
 													kindof = "FunctionExpression",
 													parameters = {
 														{
@@ -683,7 +721,7 @@ function generateStatement(node, level, properties)
 														{
 															kindof = "ReturnStatement",
 															arguments = {
-																node.parent and {
+																{
 																	kindof = "MemberExpression",
 																	record = {
 																		kindof = "Identifier",
@@ -694,26 +732,13 @@ function generateStatement(node, level, properties)
 																		value = "key"
 																	},
 																	computed = true
-																} or {
-																	kindof = "CallExpression",
-																	caller = {
-																		kindof = "Identifier",
-																		value = "rawget"
-																	},
-																	arguments = {
-																		{
-																			kindof = "Identifier",
-																			value = "self"
-																		},
-																		{
-																			kindof = "Identifier",
-																			value = "key"
-																		}
-																	}
 																}
 															}
 														}
 													}
+												} or {
+													kindof = "Identifier",
+													value = safeName
 												}
 											}
 										}
@@ -777,16 +802,24 @@ function generateStatement(node, level, properties)
 												},
 												operator = "=",
 												right = {
-													kindof = "MemberExpression",
-													record = {
-														kindof = "Identifier",
-														value = safeParent
+													kindof = "BinaryExpression",
+													left = {
+														kindof = "MemberExpression",
+														record = {
+															kindof = "Identifier",
+															value = safeParent
+														},
+														property = {
+															kindof = "Identifier",
+															value = "__newindex"
+														},
+														computed = false
 													},
-													property = {
+													operator = "or",
+													right = {
 														kindof = "Identifier",
-														value = "__newindex"
-													},
-													computed = false
+														value = "rawset"
+													}
 												}
 											}
 										}
