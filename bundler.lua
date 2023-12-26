@@ -55,7 +55,7 @@ local function bundle (graph)
 		end
 		modules[#modules + 1] = string.format([[{
 		-- %s
-		function (require, exports)
+		function (import, exports)
 %s
 		end,
 		{%s}
@@ -63,11 +63,11 @@ local function bundle (graph)
 	end
 	return string.format([[(function (modules)
 		local loaded = {}
-		local function require(id)
+		local function require (id)
 			if not loaded[id] then
-				local fn, mapping = table.unpack(modules[id])
+				local moduleFunc, moduleMapping = table.unpack(modules[id])
 				local exports = {}
-				fn(function(name) return require(mapping[name]) end, exports)
+				moduleFunc(function(name) return require(moduleMapping[name]) end, exports)
 				loaded[id] = exports
 			end
 			return loaded[id]

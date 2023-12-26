@@ -1,14 +1,14 @@
 ---@meta NodeTypes
 
 --- Terms
----@alias UnaryExpression { kindof: "UnaryExpression", operator: "-"|"$"|"#"|"!"|"...", argument: Expression }
+---@alias UnaryOperator "-"|"$"|"#"|"!"|"..."
+---@alias UnaryExpression { kindof: "UnaryExpression", operator: UnaryOperator, argument: Expression }
 ---@alias Identifier { kindof: "Identifier", value: string }
 ---@alias StringLiteral { kindof: "StringLiteral", value: string }
 ---@alias NumberLiteral { kindof: "NumberLiteral", value: number }
 ---@alias BooleanLiteral { kindof: "BooleanLiteral", value: "true"|"false" }
----@alias Ellipsis { kindof: "Ellipsis" }
 ---@alias Undefined { kindof: "Undefined" }
----@alias Term UnaryExpression|Identifier|StringLiteral|NumberLiteral|BooleanLiteral|Undefined|Ellipsis
+---@alias Term UnaryExpression|Identifier|StringLiteral|NumberLiteral|BooleanLiteral|Undefined
 
 --- Expressions
 ---@alias MemberExpression { kindof: "MemberExpression", record: MemberExpression|Identifier|ParenthesizedExpression, property: Expression, computed: boolean, instance?: boolean }
@@ -25,12 +25,12 @@
 
 --- Statements
 ---@alias Comment { kindof: "Comment", content: string[] }
----@alias ImportDeclaration { kindof: "ImportDeclaration", names: Identifier[], location: StringLiteral }
----@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: AssignmentExpression[], decorations?: table<string, true> }
----@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[] }
----@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, super?: Identifier, parameters: Identifier[], body: BlockStatement[], decorations?: table<string, true> }
+---@alias ImportDeclaration { kindof: "ImportDeclaration", names: Identifier|Identifier[], location: StringLiteral }
+---@alias VariableDeclaration { kindof: "VariableDeclaration", declarations: AssignmentExpression[], decorations: table<string, true>? }
+---@alias VariableAssignment { kindof: "VariableAssignment", assignments: AssignmentExpression[], decorations: table<string, true>? }
+---@alias FunctionDeclaration { kindof: "FunctionDeclaration", name: Expression, super?: Identifier, parameters: Identifier[], body: BlockStatement[], decorations: table<string, true>? }
 ---@alias ReturnStatement { kindof: "ReturnStatement", arguments: Expression[] }
----@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Expression, parent: Expression, body: BlockStatement[], decorations?: table<string, true> }
+---@alias PrototypeDeclaration { kindof: "PrototypeDeclaration", name: Expression, parent: Expression, body: BlockStatement[], decorations: table<string, true>? }
 ---@alias IfStatement { kindof: "IfStatement", test: Expression, consequent: BlockStatement[], alternate?: IfStatement|BlockStatement[] }
 ---@alias WhileLoop { kindof: "WhileLoop", condition: Expression, body: BlockStatement[] }
 ---@alias NumericLoopCondition { init: AssignmentExpression, goal: Expression, step?: Expression }

@@ -1,5 +1,0 @@
-var str = string.gsub("HELLO", "H", function (a) return "Z" end)
-
-prototype MyPrototype {}
-
-end
