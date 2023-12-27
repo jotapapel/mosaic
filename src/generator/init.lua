@@ -210,7 +210,7 @@ function generateStatement(node, level, properties)
 		return string.format("local %s = import(\"%s\")", safeName, location)
 	-- VariableDeclaration
 	elseif kindof == "VariableDeclaration" then
-		if node.decorations and node.decorations["prototype"] or node.decorations["child"] then
+		if node.decorations and (node.decorations["prototype"] or node.decorations["child"]) then
 			properties = { prototype = true, child = true }
 		end
 		local lefts, rights = {}, {} ---@type string[], string[]
@@ -224,17 +224,14 @@ function generateStatement(node, level, properties)
 		return string.format("%s%s = %s", (node.decorations and node.decorations["global"]) and "" or "local ", table.concat(lefts, ', '), table.concat(rights, ', '))
 	elseif kindof == "VariableAssignment" then
 		local lefts, rights = {}, {} ---@type string[], string[]
-		local index = 1
-		for _, assignment in ipairs(node.assignments) do
-			local left = generateExpression(assignment.left, level) --[[@as string]]
-			local right ---@type string
+		for index, assignment in ipairs(node.assignments) do
+			local assignmentProperties = properties
 			if properties and properties.parent then
 				local name = ((assignment.left.kindof == "MemberExpression") and assignment.left.property.value or assignment.left.value) --[[@as string]]
-				local get = (name == "__newindex") or false
-				right = generateExpression(assignment.right, level + 1, { record = properties.parent, property = name, get = get }) --[[@as string]]
-			else
-				right = generateExpression(assignment.right, level + 1, properties)
+				assignmentProperties = { record = properties.parent, property = name, get = (name == "__newindex") or false }
 			end
+			local left = generateExpression(assignment.left, level) --[[@as string]]
+			local right = generateExpression(assignment.right, level + 1, assignmentProperties) --[[@as string]]
 			local complexOperator = assignment.operator:sub(1, 1):match("[%-%+%*//%^%%]") or (assignment.operator:sub(1, 2) == "..")
 			if assignment.left.kindof == "RecordLiteralExpression" then
 				left, right = left:match("^{%s*(.-)%s*}$"), (right == "..." or assignment.right.kindof == "UnaryExpression" or assignment.right.kindof == "CallExpression") and right or string.format("table.unpack(%s)", right)
@@ -242,7 +239,7 @@ function generateStatement(node, level, properties)
 			if complexOperator then
 				right = left .. string.format(" %s ", complexOperator) .. string.format("(%s)", right)
 			end
-			lefts[index], rights[index], index = left, right, index + 1
+			lefts[index], rights[index] = left, right
 		end
 		return string.format("%s = %s", table.concat(lefts, ', '), table.concat(rights, ', '))
 	-- FunctionDeclaration
@@ -851,8 +848,7 @@ function generateStatement(node, level, properties)
 														value = "rawset"
 													}
 												}
-											},
-											decorations =  {}
+											}
 										}
 									}),
 									prototypeContructorComment,

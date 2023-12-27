@@ -1,7 +1,7 @@
 local fs = require "lib.fs"
 local json = require "lib.json"
 local parse = require "src.parser"
-local generate = require "src.generator.Lua"
+local generate = require "src.generator"
 
 local path, option, display = ...
 local ast = parse(path, "Program")
