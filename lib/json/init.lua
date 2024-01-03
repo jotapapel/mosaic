@@ -194,7 +194,7 @@ end
 
 --- Decode a JSON file.
 ---@param filename string The file to decode.
----@return JSONValue? #The JSON valu as a Lua table.
+---@return JSONValue? #The JSON value as a Lua table.
 local function decode (filename)
 	local file <close> = io.open(filename) or error("File not found.")
 	local source = file:read("*a")

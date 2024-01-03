@@ -1,6 +1,6 @@
 local fs = require "lib.fs"
 local parse = require "src.parser"
-local generate = require "src.generator.Lua"
+local generate = require "src.generator"
 
 --- Create an asset from a Lua file.
 ---@param location string The location of the Lua file.
@@ -63,16 +63,16 @@ local function bundle (graph)
 	end
 	return string.format([[(function (modules)
 		local loaded = {}
-		local function require (id)
+		local function import (id)
 			if not loaded[id] then
 				local moduleFunc, moduleMapping = table.unpack(modules[id])
 				local exports = {}
-				moduleFunc(function(name) return require(moduleMapping[name]) end, exports)
+				moduleFunc(function(name) return import(moduleMapping[name]) end, exports)
 				loaded[id] = exports
 			end
 			return loaded[id]
 		end
-		require(1)
+		import(1)
 end)({
 	%s
 })]], table.concat(modules, ",\n\t"))

@@ -81,9 +81,13 @@ function generateExpression(node, level, properties)
 	level = level or 0
 	local kindof = node.kindof
 	if kindof == "UnaryExpression" then
-		local operator, argument = node.operator, generateExpression(node.argument, level + 1, properties)
-		if operator == "!" then
-			return string.format("not(%s)", argument)
+		local operator, argument = node.operator --[[@as UnaryOperator]], generateExpression(node.argument, level + 1, properties)
+		if operator == "not" then
+			local pattern = "not %s"
+			if node.argument.kindof == "BinaryExpression" then
+				pattern = "not (%s)"
+			end
+			return string.format(pattern, argument)
 		elseif operator == "#" then
 			if node.argument.kindof == "Identifier" and node.argument.value == "..." then
 				return "select(\"#\", ...)"
@@ -97,6 +101,8 @@ function generateExpression(node, level, properties)
 		return exports[node.value] or node.value
 	elseif kindof == "StringLiteral" then
 		return string.format("\"%s\"", node.value)
+	elseif kindof == "LongStringLiteral" then
+		return string.format("[[%s]]", node.value)
 	elseif kindof == "NumberLiteral" or kindof == "BooleanLiteral" then
 		return node.value
 	elseif kindof == "Undefined" then
@@ -106,7 +112,7 @@ function generateExpression(node, level, properties)
 		local record, property = generateExpression(node.record, level), generateExpression(node.property, level + 1, properties)
 		return string.format(pattern, record, property)
 	elseif kindof == "CallExpression" then
-		if properties and properties.record and properties.property and node.caller.value == "super" then
+		if node.caller.value == "super" and (properties and properties.record and properties.property) then
 			local caller = {
 				kindof = "MemberExpression",
 				record = {
@@ -172,10 +178,11 @@ function generateExpression(node, level, properties)
 		local parameters = map(node.parameters, generateExpression, level) --[=[@as string[]]=]
 		local body = {} ---@type string[]
 		for _, statement in ipairs(node.body) do
+			local expressionProperties = properties
 			if properties and properties.prototype and properties.child then
-				properties = { parent = parameters[1] }
+				expressionProperties = { parent = parameters[1] }
 			end
-			body[#body + 1] = generateStatement(statement, level, properties)
+			body[#body + 1] = generateStatement(statement, level, expressionProperties)
 		end
 		return generate(string.format("function (%s)", table.concat(parameters, ", ")), body, "end", level - 1)
 	elseif kindof == "ParenthesizedExpression" then
@@ -215,7 +222,8 @@ function generateStatement(node, level, properties)
 		end
 		local lefts, rights = {}, {} ---@type string[], string[]
 		for index, declaration in ipairs(node.declarations) do
-			local left, right = generateExpression(declaration.left, level, properties) --[[@as string]], generateExpression(declaration.right, level + 1, properties) --[[@as string]]
+			local left = generateExpression(declaration.left, level) --[[@as string]]
+			local right = generateExpression(declaration.right, level + 1, properties) --[[@as string]]
 			if declaration.left.kindof == "RecordLiteralExpression" then
 				left, right = left:match("^{%s*(.-)%s*}$"), (right == "..." or declaration.right.kindof == "UnaryExpression" or declaration.right.kindof == "CallExpression") and right or string.format("table.unpack(%s)", right)
 			end
@@ -232,12 +240,13 @@ function generateStatement(node, level, properties)
 			end
 			local left = generateExpression(assignment.left, level) --[[@as string]]
 			local right = generateExpression(assignment.right, level + 1, assignmentProperties) --[[@as string]]
-			local complexOperator = assignment.operator:sub(1, 1):match("[%-%+%*//%^%%]") or (assignment.operator:sub(1, 2) == "..")
+			local complexOperator = assignment.operator:sub(1, 1):match("[%-%+%*//%^%%]") or ((assignment.operator:sub(1, 2) == "..") and "..")
 			if assignment.left.kindof == "RecordLiteralExpression" then
 				left, right = left:match("^{%s*(.-)%s*}$"), (right == "..." or assignment.right.kindof == "UnaryExpression" or assignment.right.kindof == "CallExpression") and right or string.format("table.unpack(%s)", right)
 			end
 			if complexOperator then
-				right = left .. string.format(" %s ", complexOperator) .. string.format("(%s)", right)
+				local pattern = (assignment.right.kindof == "BinaryExpression") and "(%s)" or "%s"
+				right = left .. string.format(" %s ", complexOperator) .. string.format(pattern, right)
 			end
 			lefts[index], rights[index] = left, right
 		end
@@ -250,7 +259,7 @@ function generateStatement(node, level, properties)
 		for _, statement in ipairs(node.body) do
 			body[#body + 1] = generateStatement(statement, level + 1, properties)
 		end
-		return generate(string.format("%sfunction %s (%s)",  (node.decorations and node.decorations["global"]) and "" or "local ", name, table.concat(parameters, ", ")), body, "end", level)
+		return generate(string.format("%sfunction %s (%s)",  ((node.decorations and node.decorations["global"]) or node.name.kindof == "MemberExpression") and "" or "local ", name, table.concat(parameters, ", ")), body, "end", level)
 	-- ReturnStatement
 	elseif kindof == "ReturnStatement" then
 		local arguments = map(node.arguments, generateExpression, level, properties) --[=[@as string[]]=]
@@ -259,7 +268,8 @@ function generateStatement(node, level, properties)
 	elseif kindof == "PrototypeDeclaration" then
 		local name, parent = generateExpression(node.name) --[[@as string]], node.parent and generateExpression(node.parent) --[[@as string]]
 		local safeName, safeParent = name:gsub("%.", "_"), parent and parent:gsub("%.", "_")
-		local prototypeContructorComment, prototypeConstructorParameters, prototypeConstructorBody
+		local prototypeContructorComment, prototypeConstructorParameters, prototypeConstructorStatement
+		local prototypeConstructorBody = {} ---@type StatementExpression[]
 		local prototypeIndexes, prototypeNewIndexes = {}, {}
 		local prototypeVariables, prototypeFunctions = {}, {}
 		for index, statementExpression in ipairs(node.body) do
@@ -379,6 +389,41 @@ function generateStatement(node, level, properties)
 			elseif statementExpression.kindof == "VariableDeclaration" then
 				local assignments = {} ---@type AssignmentExpression[]
 				for _, declaration in ipairs(statementExpression.declarations) do
+					if declaration.right.kindof == "RecordLiteralExpression" then
+						local left = { kindof = "MemberExpression", record = { kindof = "Identifier", value = "self" }, property = declaration.left --[[@as Identifier]], computed = false } ---@type MemberExpression
+						local right = { kindof = "RecordLiteralExpression", elements = {} } ---@type RecordLiteralExpression|CallExpression
+						if #declaration.right.elements > 0 then
+							right = {
+								kindof = "CallExpression",
+								caller = {
+									kindof = "Identifier",
+									value = "setmetatable"
+								},
+								arguments = unpack {
+									right,
+									{
+										kindof = "MemberExpression",
+										record = {
+											kindof = "Identifier",
+											value = "self"
+										},
+										left
+									}
+								}
+							}
+						end
+						prototypeConstructorBody[#prototypeConstructorBody + 1] = {
+							kindof = "VariableAssignment",
+							assignments = {
+								{
+									kindof = "AssignmentExpression",
+									left = left,
+									operator = "=",
+									right = right
+								}
+							}
+						}
+					end
 					assignments[#assignments + 1] = {
 						kindof = "AssignmentExpression",
 						left = {
@@ -401,104 +446,7 @@ function generateStatement(node, level, properties)
 			-- FunctionDeclaration
 			elseif statementExpression.kindof == "FunctionDeclaration" then
 				if statementExpression.name.value == "constructor" then
-					prototypeConstructorParameters = statementExpression.parameters
-					local firstInnerStatementExpression = table.remove(statementExpression.body, 1)
-					if firstInnerStatementExpression and firstInnerStatementExpression.kindof == "CallExpression" and firstInnerStatementExpression.caller.value == "super" then
-						prototypeConstructorBody = unpack {
-							{
-								kindof = "VariableDeclaration",
-								declarations = {
-									{
-										kindof = "AssignmentExpression",
-										left = {
-											kindof = "Identifier",
-											value = "self"
-										},
-										operator = "=",
-										right = {
-											kindof = "CallExpression",
-											caller = {
-												kindof = "Identifier",
-												value = safeParent
-											},
-											arguments =	firstInnerStatementExpression.arguments
-										}
-									}
-								}
-							},
-							{
-								kindof = "CallExpression",
-								caller = {
-									kindof = "Identifier",
-									value = "setmetatable"
-								},
-								arguments = {
-									{
-										kindof = "Identifier",
-										value = "self"
-									},
-									{
-										kindof = "Identifier",
-										value = safeName
-									}
-								}
-							},
-							statementExpression.body,
-							{
-								kindof = "ReturnStatement",
-								arguments = {
-									{
-										kindof = "Identifier",
-										value = "self"
-									}
-								}
-							}
-						}
-					else
-						prototypeConstructorBody = unpack {
-							{
-								kindof = "VariableDeclaration",
-								declarations = {
-									{
-										kindof = "AssignmentExpression",
-										left = {
-											kindof = "Identifier",
-											value = "self"
-										},
-										operator = "=",
-										right = {
-											kindof = "CallExpression",
-											caller = {
-												kindof = "Identifier",
-												value = "setmetatable"
-											},
-											arguments = {
-												{
-													kindof = "RecordLiteralExpression",
-													elements = {}
-												},
-												{
-													kindof = "Identifier",
-													value = safeName
-												}
-											}
-										}
-									}
-								}
-							},
-							firstInnerStatementExpression,
-							statementExpression.body,
-							{
-								kindof = "ReturnStatement",
-								arguments = {
-									{
-										kindof = "Identifier",
-										value = "self"
-									}
-								}
-							}
-						}
-					end
+					prototypeConstructorStatement = statementExpression
 				else
 					prototypeFunctions[#prototypeFunctions + 1] = {
 						kindof = "VariableAssignment",
@@ -524,7 +472,7 @@ function generateStatement(node, level, properties)
 										},
 										statementExpression.parameters
 									},
-									body = statementExpression.body --[=[@as BlockStatement[]]=]
+									body = statementExpression.body
 								} --[[@as FunctionExpression]]
 							} --[[@as AssignmentExpression]]
 						},
@@ -534,6 +482,108 @@ function generateStatement(node, level, properties)
 					} --[[@as VariableAssignment]]
 				end
 			end
+		end
+		if prototypeConstructorStatement and node.parent then
+			prototypeConstructorParameters = prototypeConstructorStatement.parameters
+			local firstInnerStatementExpression = prototypeConstructorStatement.body[1]
+			if firstInnerStatementExpression and firstInnerStatementExpression.kindof == "CallExpression" and firstInnerStatementExpression.caller.value == "super" then
+				table.remove(prototypeConstructorStatement.body, 1)
+				prototypeConstructorBody = unpack {
+					{
+						kindof = "VariableDeclaration",
+						declarations = {
+							{
+								kindof = "AssignmentExpression",
+								left = {
+									kindof = "Identifier",
+									value = "self"
+								},
+								operator = "=",
+								right = {
+									kindof = "CallExpression",
+									caller = {
+										kindof = "Identifier",
+										value = safeParent
+									},
+									arguments = firstInnerStatementExpression.arguments --[=[@as Expression[]]=]
+								}
+							}
+						}
+					},
+					{
+						kindof = "CallExpression",
+						caller = {
+							kindof = "Identifier",
+							value = "setmetatable"
+						},
+						arguments = {
+							{
+								kindof = "Identifier",
+								value = "self"
+							},
+							{
+								kindof = "Identifier",
+								value = safeName
+							}
+						}
+					},
+					prototypeConstructorBody,
+					prototypeConstructorStatement.body,
+					{
+						kindof = "ReturnStatement",
+						arguments = {
+							{
+								kindof = "Identifier",
+								value = "self"
+							}
+						}
+					}
+				}
+			end
+		elseif #prototypeConstructorBody > 0 or prototypeConstructorStatement then
+			prototypeConstructorBody = unpack {
+				{
+					kindof = "VariableDeclaration",
+					declarations = {
+						{
+							kindof = "AssignmentExpression",
+							left = {
+								kindof = "Identifier",
+								value = "self"
+							},
+							operator = "=",
+							right = {
+								kindof = "CallExpression",
+								caller = {
+									kindof = "Identifier",
+									value = "setmetatable"
+								},
+								arguments = {
+									{
+										kindof = "RecordLiteralExpression",
+										elements = {}
+									},
+									{
+										kindof = "Identifier",
+										value = safeName
+									}
+								}
+							}
+						}
+					}
+				},
+				prototypeConstructorBody,
+				prototypeConstructorStatement and prototypeConstructorStatement.body,
+				{
+					kindof = "ReturnStatement",
+					arguments = {
+						{
+							kindof = "Identifier",
+							value = "self"
+						}
+					}
+				}
+			}
 		end
 		local prototypeConstructor = {
 			kindof = "VariableAssignment",
@@ -560,10 +610,10 @@ function generateStatement(node, level, properties)
 								kindof = "Identifier",
 								value = safeName
 							},
-							prototypeConstructorParameters or (parent and { kindof = "Ellipsis" } or nil)
+							prototypeConstructorParameters or (node.parent and { kindof = "Identifier", value = "..." })
 						},
 						body = unpack {
-							prototypeConstructorBody or {
+								(#prototypeConstructorBody > 0) and prototypeConstructorBody or {
 								kindof = "ReturnStatement",
 								arguments = {
 									{
@@ -606,6 +656,7 @@ function generateStatement(node, level, properties)
 								parameters = {
 									parent and { kindof = "Identifier", value = safeParent }
 								},
+								---@type BlockStatement[]
 								body = unpack {
 									{
 										kindof = "VariableDeclaration",
@@ -659,7 +710,7 @@ function generateStatement(node, level, properties)
 														{
 															kindof = "ReturnStatement",
 															arguments = {
-																safeParent and {
+																node.parent and {
 																	kindof = "BinaryExpression",
 																	left = {
 																		kindof = "CallExpression",
@@ -732,7 +783,7 @@ function generateStatement(node, level, properties)
 													computed = false
 												},
 												operator = "=",
-												right = safeParent and {
+												right = {
 													kindof = "FunctionExpression",
 													parameters = {
 														{
@@ -748,24 +799,58 @@ function generateStatement(node, level, properties)
 														{
 															kindof = "ReturnStatement",
 															arguments = {
-																{
-																	kindof = "MemberExpression",
-																	record = {
-																		kindof = "Identifier",
-																		value = safeParent
+																node.parent and {
+																	kindof = "BinaryExpression",
+																	left = {
+																		kindof = "CallExpression",
+																		caller = {
+																			kindof = "Identifier",
+																			value = "rawget"
+																		},
+																		arguments = {
+																			{
+																				kindof = "Identifier",
+																				value = safeName
+																			},
+																			{
+																				kindof = "Identifier",
+																				value = "key"
+																			}
+																		}
 																	},
-																	property = {
+																	operator = "or",
+																	right = {
+																		kindof = "MemberExpression",
+																		record = {
+																			kindof = "Identifier",
+																			value = safeParent
+																		},
+																		property = {
+																			kindof = "Identifier",
+																			value = "key"
+																		},
+																		computed = true
+																	}
+																} or {
+																	kindof = "CallExpression",
+																	caller = {
 																		kindof = "Identifier",
-																		value = "key"
+																		value = "rawget"
 																	},
-																	computed = true
+																	arguments = {
+																		{
+																			kindof = "Identifier",
+																			value = safeName
+																		},
+																		{
+																			kindof = "Identifier",
+																			value = "key"
+																		}
+																	}
 																}
 															}
 														}
 													}
-												} or {
-													kindof = "Identifier",
-													value = safeName
 												}
 											}
 										}

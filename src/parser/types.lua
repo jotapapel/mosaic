@@ -1,10 +1,10 @@
 ---@meta NodeTypes
 
 --- Terms
----@alias UnaryOperator "-"|"$"|"#"|"!"|"..."
+---@alias UnaryOperator "not"|"-"|"#"|"..."
 ---@alias UnaryExpression { kindof: "UnaryExpression", operator: UnaryOperator, argument: Expression }
 ---@alias Identifier { kindof: "Identifier", value: string }
----@alias StringLiteral { kindof: "StringLiteral", value: string }
+---@alias StringLiteral { kindof: "LongStringLiteral"|"StringLiteral", value: string }
 ---@alias NumberLiteral { kindof: "NumberLiteral", value: number }
 ---@alias BooleanLiteral { kindof: "BooleanLiteral", value: "true"|"false" }
 ---@alias Undefined { kindof: "Undefined" }

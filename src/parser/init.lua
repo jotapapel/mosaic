@@ -4,7 +4,7 @@ local parseExpression, parseStatement ---@type Parser<Expression>, Parser<Statem
 
 ---@type table<string, boolean>
 local keywords <const> = {
-	["and"] = true, ["or"] = true, ["is"] = true,
+	["and"] = true, ["or"] = true, ["is"] = true, ["not"] = true,
 	["var"] = true,
 	["function"] = true, ["return"] = true,
 	["prototype"] = true,
@@ -25,10 +25,17 @@ local escapedCharacters <const> = {
 
 --- Throw a local error.
 ---@param message string The error message.
----@param line? number Optional line to indicate the origin of the error.
+---@param line? string|number Optional line to indicate the origin of the error.
 local function throw (message, line)
 	io.write(string.format("[%s]", path), " <mosaic> ", line or current.line, ": ", message, ".\n")
 	os.exit()
+end
+
+--- Warn the user about something.
+---@param message string The warning message.
+---@param line? number Optional line to indicate the origin of the warning.
+local function warn (message, line)
+	io.write(string.format("[%s]", path), " (warning) <mosaic> ", line or current.line, ": ", message, ".\n")
 end
 
 --- Source code tokenizer.
@@ -162,6 +169,13 @@ local function scan (source)
 						typeof = "LeftBrace"
 					elseif char == "[" then
 						typeof = "LeftBracket"
+						if adjacent == "[" then
+							typeof, index, fromIndex = "LongString", index + 1, index + 1
+							while index <= len and source:sub(index, index + 1) ~= "]]" do
+								index = index + 1
+							end
+							index, toIndex = index + 2, index
+						end
 					elseif char == "]" then
 						typeof = "RightBracket"
 					elseif char == "}" then
@@ -192,8 +206,6 @@ local function scan (source)
 						typeof = "Semicolon"
 					elseif char == "#" then
 						typeof = "Pound"
-					elseif char == "!" then
-						typeof = "Bang"
 					elseif char == "@" then
 						typeof = "At"
 					end
@@ -280,7 +292,7 @@ end
 local function parseTerm ()
 	local typeof, value = consume()
 	-- UnaryExpression
-	if typeof == "Minus" or typeof == "Pound" or typeof == "Bang" then
+	if typeof == "Not" or typeof == "Minus" or typeof == "Pound" then
 		return {
 			kindof = "UnaryExpression",
 			operator = value,
@@ -290,11 +302,14 @@ local function parseTerm ()
 	elseif typeof == "Identifier" then
 		return { kindof = "Identifier", value = value } --[[@as Identifier]]
 	-- StringLiteral
-	elseif typeof == "String" then
+	elseif typeof == "String" or typeof == "LongString" then
 		value = value:gsub("\\(%d%d%d)", function (d)
 			return escapedCharacters[tonumber(d)]
 		end)
-		return { kindof = "StringLiteral", value = value } --[[@as StringLiteral]]
+		return {
+			kindof = typeof .. "Literal",
+			value = value
+		} --[[@as StringLiteral]]
 	-- NumberLiteral
 	elseif typeof == "Number" then
 		return { kindof = "NumberLiteral", value = tonumber(value) } --[[@as NumberLiteral]]
@@ -571,7 +586,7 @@ function parseStatement ()
 					local right = { kindof = "Undefined" } ---@type Expression
 					if suppose "Equal" then
 						if left.kindof == "RecordLiteralExpression" then
-							right = catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "Ellipsis", "UnaryExpression")
+							right = catch("'<record> or '...' expected", parseExpression, "UnaryExpression", "Identifier", "CallExpression", "RecordLiteralExpression")
 						else
 							right = parseExpression()
 						end
@@ -702,14 +717,16 @@ function parseStatement ()
 						latest.kindof, latest.test, latest.consequent = "IfStatement", parseExpression(), {}
 						expect("'then' missing", "Then")
 					end
-					repeat
-						local target = latest.consequent or latest --[[@as IfStatement]]
-						target[#target + 1] = parseStatement()
-						if current.typeof == "Elseif" or suppose("Else") then
-							latest.alternate = {}
-							latest = latest.alternate
-						end
-					until current.typeof == "Elseif" or current.typeof == "End"
+					if current.typeof ~= "End" then
+						repeat
+							local target = latest.consequent or latest --[[@as IfStatement]]
+							target[#target + 1] = parseStatement()
+							if current.typeof == "Elseif" or suppose("Else") then
+								latest.alternate = {}
+								latest = latest.alternate
+							end
+						until current.typeof == "Elseif" or current.typeof == "End"
+					end
 				until current.typeof == "End"
 				expect("'end' expected " .. string.format((current.line > line) and "(to close 'if' at line %s)" or "", line), "End")
 				return node
@@ -766,7 +783,7 @@ function parseStatement ()
 						end
 						return left
 					elseif left.kindof == "RecordLiteralExpression" then
-						operator, right = expect("'=' expected", "Equal"), catch("'<record> or '...' expected", parseExpression, "RecordLiteralExpression", "CallExpression", "Ellipsis", "UnaryExpression")
+						operator, right = expect("'=' expected", "Equal"), catch("'<record> or '...' expected", parseExpression, "UnaryExpression", "Identifier", "CallExpression", "RecordLiteralExpression")
 					elseif left.kindof == "MemberExpression" or left.kindof == "Identifier" then
 						operator, right = expect("'=' expected", "Equal", "MinusEqual", "PlusEqual", "AsteriskEqual", "SlashEqual", "CircumflexEqual", "PercentEqual", "ConcatEqual"), parseExpression()
 					else
@@ -796,7 +813,7 @@ end
 ---@return AST #The AST table.
 return function (location, kindof)
 	path = assert(location, "Must provide a file path.") --[[@as string]]
-	local file <close> = io.open(location) or error("Source file not found.")
+	local file <close> = io.open(location) or throw("Source file not found", "") --[[@as file*]]
 	local source = file:read("*a")
 	local ast, exports = { kindof = kindof, body = {} }, {} ---@type AST, table<string, true>
 	pop, peek, current = scan(source)
@@ -839,7 +856,7 @@ return function (location, kindof)
 						kindof = "AssignmentExpression",
 						left = left,
 						operator = "=",
-						right = assignment.right
+						right = assignment.left
 					}), true
 				end
 			-- FunctionDeclaration or PrototypeDeclaration
